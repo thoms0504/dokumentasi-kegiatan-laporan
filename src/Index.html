@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <?!= include('Style'); ?>
+</head>
+<body>
+
+<!-- ============ LOADER ============ -->
+<div id="loader" class="loader">
+  <div class="loader-box">
+    <div class="spinner"></div>
+    <p id="loaderText">Memuat data kegiatan…</p>
+  </div>
+</div>
+
+<div class="app">
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-logo"><i data-ic="file"></i></div>
+      <div>
+        <div class="brand-name">DokuKegiatan</div>
+        <div class="brand-sub">Dokumentasi Kantor</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-label">Menu</div>
+      <a class="nav-item active" data-view="dashboard"><i data-ic="dashboard"></i><span>Dashboard</span></a>
+      <a class="nav-item" data-view="kegiatan"><i data-ic="list"></i><span>Kegiatan</span><b class="nav-count" id="navCount">0</b></a>
+      <a class="nav-item" data-view="folder"><i data-ic="folder"></i><span>Folder Drive</span></a>
+
+      <div class="nav-label">Tautan</div>
+      <a class="nav-item" id="lnkRoot" target="_blank" rel="noopener"><i data-ic="external"></i><span>Buka Google Drive</span></a>
+      <a class="nav-item" id="lnkDb" target="_blank" rel="noopener"><i data-ic="sheet"></i><span>Database Sheets</span></a>
+    </nav>
+
+    <div class="sidebar-foot">
+      <div class="avatar"><i data-ic="user" data-s="16"></i></div>
+      <div class="who">
+        <small>Masuk sebagai</small>
+        <div id="userEmail" class="ellipsis">Pengguna</div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+  <!-- ============ MAIN ============ -->
+  <main class="main">
+    <header class="topbar">
+      <button class="icon-btn only-mobile" id="btnMenu" aria-label="Menu"><i data-ic="menu"></i></button>
+      <div class="topbar-title">
+        <h1 id="pageTitle">Dashboard</h1>
+        <p id="pageSub">Ringkasan kegiatan dan progres</p>
+      </div>
+      <div class="topbar-actions">
+        <div class="select-wrap" id="yearWrap">
+          <i data-ic="calendar" data-s="16"></i>
+          <select id="yearFilter" aria-label="Filter tahun"></select>
+        </div>
+        <button class="icon-btn" id="btnRefresh" title="Muat ulang data"><i data-ic="refresh"></i></button>
+        <button class="btn primary" id="btnNew"><i data-ic="plus" data-s="16"></i><span>Kegiatan Baru</span></button>
+      </div>
+    </header>
+
+    <div class="content">
+      <!-- ============ DASHBOARD ============ -->
+      <section id="view-dashboard" class="view">
+        <div class="kpis" id="kpis"></div>
+
+        <div class="grid-main">
+          <div class="card">
+            <div class="card-head">
+              <div><h3>Kegiatan per Bulan</h3><p class="muted" id="chartBulanSub">Jumlah kegiatan berdasarkan status</p></div>
+            </div>
+            <div class="chart-box"><canvas id="chartBulan"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div><h3>Komposisi Status</h3><p class="muted">Sebaran status kegiatan</p></div></div>
+            <div class="chart-box donut"><canvas id="chartStatus"></canvas>
+              <div class="donut-center"><b id="donutPct">0%</b><small>selesai</small></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="card">
+            <div class="card-head"><div><h3>Progres per Folder</h3><p class="muted">Rata-rata progres tiap folder</p></div></div>
+            <div id="folderProgress" class="stack"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div><h3>Perlu Perhatian</h3><p class="muted">Belum selesai, progres terendah</p></div></div>
+            <div id="attention" class="stack"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div><h3>Aktivitas Terbaru</h3><p class="muted">Terakhir diperbarui</p></div></div>
+            <div id="recent" class="stack"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ KEGIATAN ============ -->
+      <section id="view-kegiatan" class="view hidden">
+        <div class="toolbar card">
+          <div class="search">
+            <i data-ic="search" data-s="16"></i>
+            <input id="fSearch" type="search" placeholder="Cari kegiatan, isi, atau PIC…">
+          </div>
+          <select id="fBulan"></select>
+          <select id="fStatus"></select>
+          <select id="fFolder"></select>
+          <button class="btn ghost" id="btnReset">Reset</button>
+        </div>
+
+        <div class="card list-card">
+          <div class="list-top">
+            <span id="kSummary" class="muted">—</span>
+          </div>
+          <div class="k-head">
+            <span>Kegiatan</span><span>Folder</span><span>Tanggal &amp; PIC</span><span>Progres</span><span>Status</span>
+          </div>
+          <div id="kList"></div>
+        </div>
+      </section>
+
+      <!-- ============ FOLDER ============ -->
+      <section id="view-folder" class="view hidden">
+        <div class="card crumb-card">
+          <div class="crumbs" id="crumbs"></div>
+          <a class="btn ghost sm" id="lnkCurrent" target="_blank" rel="noopener"><i data-ic="external" data-s="14"></i>Buka di Drive</a>
+        </div>
+        <div class="explorer">
+          <div class="card col">
+            <div class="col-head"><h4>Tahun</h4><button class="btn ghost sm" id="btnAddYear"><i data-ic="plus" data-s="14"></i>Tahun</button></div>
+            <div id="colYear" class="col-body"></div>
+          </div>
+          <div class="card col">
+            <div class="col-head"><h4>Bulan</h4></div>
+            <div id="colMonth" class="col-body"></div>
+          </div>
+          <div class="card col col-wide">
+            <div class="col-head"><h4 id="colFolderTitle">Folder Kegiatan</h4><button class="btn primary sm" id="btnAddFolder"><i data-ic="plus" data-s="14"></i><span id="btnAddFolderLabel">Folder Baru</span></button></div>
+            <div id="colFolder" class="col-body"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<!-- ============ NAVIGASI BAWAH (HP) ============ -->
+<nav class="bottom-nav" id="bottomNav">
+  <a class="bn-item active" data-view="dashboard"><i data-ic="dashboard" data-s="21"></i><span>Dashboard</span></a>
+  <a class="bn-item" data-view="kegiatan"><i data-ic="list" data-s="21"></i><span>Kegiatan</span></a>
+  <button type="button" class="bn-fab" id="bnFab" aria-label="Buat laporan"><span class="fab"><i data-ic="plus" data-s="26"></i></span><span>Lapor</span></button>
+  <a class="bn-item" data-view="folder"><i data-ic="folder" data-s="21"></i><span>Folder</span></a>
+  <a class="bn-item" id="bnMore"><i data-ic="menu" data-s="21"></i><span>Lainnya</span></a>
+</nav>
+
+<!-- ============ MODAL: LAPOR CEPAT ============ -->
+<div class="modal top" id="mQuick">
+  <div class="modal-card sm">
+    <div class="modal-head">
+      <div><h3>Lapor Cepat</h3><p class="muted">Pilih yang ingin dilakukan</p></div>
+      <button class="icon-btn" data-close aria-label="Tutup"><i data-ic="x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="sheet-opts">
+        <button type="button" class="sheet-opt hero" id="qPhoto"><span class="so-ic"><i data-ic="camera" data-s="22"></i></span><span><b>Foto &amp; Buat Laporan</b><small>Ambil foto dulu, lalu isi laporan kegiatan</small></span></button>
+        <button type="button" class="sheet-opt" id="qNew"><span class="so-ic"><i data-ic="file" data-s="22"></i></span><span><b>Laporan Kegiatan Baru</b><small>Isi kegiatan, isi kegiatan &amp; lampiran</small></span></button>
+      </div>
+      <div class="sheet-sub">Update progres / tambah dokumentasi</div>
+      <div class="pick-list" id="qPick"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: FORM KEGIATAN ============ -->
+<div class="modal" id="mKegiatan">
+  <div class="modal-card lg">
+    <div class="modal-head">
+      <div>
+        <h3 id="mkTitle">Kegiatan Baru</h3>
+        <p class="muted" id="mkSub">Isi detail kegiatan. Ringkasan & dokumentasi akan tersimpan ke folder Drive.</p>
+      </div>
+      <button class="icon-btn" data-close aria-label="Tutup"><i data-ic="x"></i></button>
+    </div>
+    <form id="fKegiatan" class="modal-body" autocomplete="off">
+      <input type="hidden" id="kId">
+      <div class="form-grid">
+        <label class="fld span-2">
+          <span>Nama Kegiatan <em>*</em></span>
+          <input id="kNama" maxlength="150" placeholder="Contoh: Rapat Koordinasi Bulanan" required>
+        </label>
+        <label class="fld">
+          <span>Tanggal Kegiatan</span>
+          <input id="kTanggal" type="date">
+        </label>
+        <label class="fld">
+          <span>PIC / Penanggung Jawab</span>
+          <input id="kPic" maxlength="80" placeholder="Nama penanggung jawab">
+        </label>
+
+        <div class="fld span-2" id="kDest">
+          <span>Folder Tujuan di Drive <em>*</em></span>
+          <div class="dest-row">
+            <select id="kTahun" aria-label="Tahun"></select>
+            <select id="kBulan" aria-label="Bulan"></select>
+            <select id="kFolder" aria-label="Folder"></select>
+            <button type="button" class="btn ghost" id="kNewFolder" title="Folder baru di bulan ini"><i data-ic="plus" data-s="14"></i>Folder</button>
+            <button type="button" class="btn ghost" id="kNewSub" title="Sub-folder di dalam folder terpilih" disabled><i data-ic="plus" data-s="14"></i>Sub</button>
+          </div>
+          <small class="hint" id="kPath"></small>
+          <small class="last-hint hidden" id="kLastHint"><i data-ic="check" data-s="13"></i>Memakai folder &amp; PIC dari laporan terakhir</small>
+        </div>
+        <div class="fld span-2 hidden" id="kDestLocked">
+          <span>Folder Tujuan</span>
+          <div class="locked" id="kLockedPath"></div>
+        </div>
+
+        <label class="fld span-2">
+          <span>Isi Kegiatan</span>
+          <textarea id="kIsi" rows="6" placeholder="Tuliskan uraian, hasil, notulen, atau catatan kegiatan…"></textarea>
+        </label>
+
+        <div class="fld span-2">
+          <span>Progres Kegiatan</span>
+          <div class="range-wrap">
+            <input type="range" id="kProg" min="0" max="100" step="5" value="0">
+            <output id="kProgOut" class="prog-pill">0%</output>
+          </div>
+          <div class="quick" id="kQuick"></div>
+        </div>
+
+        <div class="fld span-2" id="kUploadWrap">
+          <span>Dokumentasi &amp; Bukti Dukung <small class="muted">(maks. 25 MB/file)</small></span>
+          <div class="upload-zone" id="kZone">
+            <div class="up-actions">
+              <button type="button" class="up-btn cam" id="kCam"><i data-ic="camera" data-s="22"></i><b>Ambil Foto</b><small>Kamera langsung</small></button>
+              <button type="button" class="up-btn" id="kDoc"><i data-ic="image" data-s="22"></i><b>Upload Dokumentasi</b><small>Foto / video kegiatan</small></button>
+              <button type="button" class="up-btn" id="kBukti"><i data-ic="paperclip" data-s="22"></i><b>Upload Bukti Dukung</b><small>Surat, daftar hadir, notulen, PDF</small></button>
+            </div>
+            <div class="up-drop">atau tarik &amp; lepas file ke sini</div>
+          </div>
+          <div id="kFileList" class="pending"></div>
+        </div>
+      </div>
+    </form>
+    <div class="modal-foot">
+      <button class="btn ghost" data-close type="button">Batal</button>
+      <button class="btn primary" id="kSubmit" form="fKegiatan" type="submit">Simpan Kegiatan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: PROMPT ============ -->
+<div class="modal top" id="mPrompt">
+  <div class="modal-card sm">
+    <div class="modal-head">
+      <div><h3 id="pTitle">Judul</h3><p class="muted" id="pHint"></p></div>
+      <button class="icon-btn" data-close aria-label="Tutup"><i data-ic="x"></i></button>
+    </div>
+    <form id="fPrompt" class="modal-body">
+      <label class="fld"><span id="pLabel">Nama</span><input id="pInput" required></label>
+    </form>
+    <div class="modal-foot">
+      <button class="btn ghost" data-close type="button">Batal</button>
+      <button class="btn primary" id="pSubmit" form="fPrompt" type="submit">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: KONFIRMASI ============ -->
+<div class="modal top" id="mConfirm">
+  <div class="modal-card sm">
+    <div class="modal-body confirm-body">
+      <div class="confirm-ic"><i data-ic="alert" data-s="22"></i></div>
+      <h3 id="cTitle">Yakin?</h3>
+      <p class="muted" id="cText"></p>
+      <ul class="c-list hidden" id="cList"></ul>
+      <label class="fld c-type hidden" id="cTypeWrap">
+        <span id="cTypeLabel">Ketik nama folder untuk konfirmasi</span>
+        <input id="cType" autocomplete="off">
+      </label>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" data-close type="button">Batal</button>
+      <button class="btn danger" id="cOk" type="button">Hapus</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ INPUT FILE TERSEMBUNYI ============ -->
+<input type="file" id="inDoc" multiple accept="image/*,video/*" hidden>
+<input type="file" id="inBukti" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,image/*" hidden>
+<input type="file" id="inNativeCam" accept="image/*" capture="environment" hidden>
+
+<!-- ============ MODAL: KAMERA ============ -->
+<div class="modal top" id="mCamera">
+  <div class="modal-card cam-card">
+    <div class="modal-head">
+      <div><h3>Ambil Foto Dokumentasi</h3><p class="muted" id="camSub">Foto langsung tersimpan sebagai dokumentasi kegiatan.</p></div>
+      <button class="icon-btn" id="camClose" aria-label="Tutup"><i data-ic="x"></i></button>
+    </div>
+    <div class="cam-stage" id="camStage">
+      <video id="camVideo" autoplay playsinline muted></video>
+      <div class="cam-flash" id="camFlash"></div>
+      <div class="cam-msg hidden" id="camMsg">
+        <div class="confirm-ic" style="background:#eff4ff;color:#2563eb"><i data-ic="camera" data-s="22"></i></div>
+        <b id="camMsgTitle">Kamera tidak dapat dibuka</b>
+        <p id="camMsgText">Browser tidak mengizinkan kamera langsung di halaman ini.</p>
+        <button type="button" class="btn primary" id="camNative"><i data-ic="camera" data-s="16"></i>Buka Kamera Perangkat</button>
+      </div>
+      <div class="cam-stamp-preview" id="camStampPrev"></div>
+    </div>
+    <div class="cam-bar">
+      <label class="switch"><input type="checkbox" id="camStamp" checked><span></span>Cap waktu &amp; nama kegiatan</label>
+      <div class="cam-ctrl">
+        <button type="button" class="icon-btn" id="camSwitch" title="Ganti kamera depan/belakang"><i data-ic="refresh"></i></button>
+        <button type="button" class="shutter" id="camShot" title="Ambil foto"><span></span></button>
+        <button type="button" class="btn primary" id="camDone" disabled>Selesai</button>
+      </div>
+    </div>
+    <div class="cam-strip" id="camStrip"></div>
+  </div>
+</div>
+
+<!-- ============ DRAWER DETAIL ============ -->
+<div class="drawer-wrap" id="drawerWrap">
+  <div class="drawer-backdrop" data-close-drawer></div>
+  <aside class="drawer" id="drawer"></aside>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<?!= include('Script'); ?>
+</body>
+</html>

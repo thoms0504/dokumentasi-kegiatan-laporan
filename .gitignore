@@ -1,0 +1,10 @@
+# clasp — berisi scriptId proyek Anda, jangan di-commit ke repo publik
+.clasp.json
+.clasprc.json
+
+# Sistem / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+node_modules/
