@@ -60,7 +60,17 @@ const ICONS = {
   image:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/>',
   camera:'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3.5"/>',
   paperclip:'<path d="m21.4 11.1-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/>',
-  download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>'
+  download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
+  ul:'<path d="M9 6h12M9 12h12M9 18h12"/><circle cx="4" cy="6" r="1.2"/><circle cx="4" cy="12" r="1.2"/><circle cx="4" cy="18" r="1.2"/>',
+  ol:'<path d="M10 6h11M10 12h11M10 18h11M4 4v4M3 8h2M3 14h2l-2 3h2"/>',
+  quote:'<path d="M7 7H4v6h3l-1 4M17 7h-3v6h3l-1 4"/>',
+  alignL:'<path d="M3 6h18M3 12h12M3 18h16"/>',
+  alignC:'<path d="M3 6h18M6 12h12M4 18h16"/>',
+  alignR:'<path d="M3 6h18M9 12h12M5 18h16"/>',
+  alignJ:'<path d="M3 6h18M3 12h18M3 18h18"/>',
+  undo:'<path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>',
+  redo:'<path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/>',
+  eraser:'<path d="m7 21-4-4 10-10 7 7-7 7zM14 21H22"/><path d="m9 11 6 6"/>'
 };
 const KAT_LABEL = { dokumentasi: 'Dokumentasi', bukti: 'Bukti Dukung' };
 /** File gambar/video → dokumentasi; dokumen (PDF, Word, Excel, dll.) → bukti dukung. */
@@ -346,6 +356,7 @@ function bindStatic() {
   $('#kBukti').addEventListener('click', () => pickFiles('#inBukti', files => addPending(files, 'bukti')));
   bindDrop($('#kZone'), files => addPending(files));
   bindCamera();
+  bindRte();
 
   // Drawer
   $('[data-close-drawer]').addEventListener('click', closeDrawer);
@@ -533,7 +544,7 @@ function renderKegiatan() {
   const q = f.q.trim().toLowerCase();
   const scope = f.folder ? folderScope(f.folder) : null; // folder terpilih + semua sub-foldernya
   const list = (scope ? S.data.filter(k => scope.has(k.folderId)) : base).filter(k =>
-    (!q || (k.kegiatan + ' ' + k.isi + ' ' + k.pic + ' ' + (k.folderPath || k.folderNama)).toLowerCase().indexOf(q) >= 0) &&
+    (!q || (k.kegiatan + ' ' + stripHtml(k.isi) + ' ' + k.pic + ' ' + (k.folderPath || k.folderNama)).toLowerCase().indexOf(q) >= 0) &&
     (!f.bulan || String(k.bulan) === String(f.bulan)) &&
     (!f.status || statusOf(k.progres) === f.status)
   ).sort((a, b) => String(b.tanggal || b.dibuat).localeCompare(String(a.tanggal || a.dibuat)));
@@ -548,7 +559,7 @@ function renderKegiatan() {
   }
 
   $('#kList').innerHTML = list.map(k => {
-    const prev = String(k.isi || '').replace(/\s+/g, ' ').slice(0, 110);
+    const prev = stripHtml(k.isi).replace(/\s+/g, ' ').slice(0, 110);
     return '<div class="k-row" data-id="' + esc(k.id) + '">' +
       '<div class="k-main"><div class="k-title ellipsis">' + esc(k.kegiatan) + '</div><div class="k-sub ellipsis">' + (esc(prev) || '<i>Tidak ada isi</i>') + '</div></div>' +
       '<div class="k-folder"><span class="chip" title="' + esc(folderLabel(k)) + '">' + ic('folder', 14) + '<span>' + esc(folderLabel(k)) + '</span></span><small>' + monthName(k.bulan) + ' ' + k.tahun + '</small></div>' +
@@ -744,7 +755,7 @@ async function deleteFolderFlow(id) {
   const list = [];
   if (info.level === 'tahun') list.push('<b>' + info.months + ' folder bulan</b> dan <b>' + info.folders + ' folder kegiatan/sub-folder</b> di dalamnya ikut terhapus.');
   else if (info.folders) list.push('<b>' + info.folders + ' ' + (info.level === 'bulan' ? 'folder kegiatan/sub-folder' : 'sub-folder') + '</b> di dalamnya ikut terhapus.');
-  if (nKeg) list.push('<b>' + nKeg + ' kegiatan</b> beserta dokumen ringkasan, dokumentasi, dan bukti dukungnya akan dihapus dari aplikasi.');
+  if (nKeg) list.push('<b>' + nKeg + ' kegiatan</b> beserta laporan PDF, dokumentasi, dan bukti dukungnya akan dihapus dari aplikasi.');
   list.push('Folder dipindahkan ke <b>Sampah Google Drive</b> dan masih bisa dipulihkan dari sana ±30 hari.');
 
   // Konfirmasi ketik-nama untuk penghapusan besar
@@ -860,12 +871,13 @@ function openForm(rec, preset) {
   $('#fKegiatan').reset();
   $('#kId').value = isEdit ? rec.id : '';
   $('#mkTitle').textContent = isEdit ? 'Edit Kegiatan' : 'Kegiatan Baru';
-  $('#mkSub').textContent = isEdit ? 'Perubahan juga memperbarui dokumen ringkasan di Drive.' : 'Ringkasan kegiatan & dokumentasi akan tersimpan ke folder Drive yang dipilih.';
+  $('#mkSub').textContent = isEdit ? 'Laporan PDF di Drive ikut diperbarui otomatis.' : 'Laporan PDF & dokumentasi akan tersimpan ke folder Drive yang dipilih.';
   $('#kSubmit').textContent = isEdit ? 'Simpan Perubahan' : 'Simpan Kegiatan';
   $('#kNama').value = isEdit ? rec.kegiatan : '';
   $('#kTanggal').value = isEdit ? rec.tanggal : S.now.tanggal;
   $('#kPic').value = isEdit ? rec.pic : '';
-  $('#kIsi').value = isEdit ? rec.isi : '';
+  $('#kIsi').innerHTML = isEdit ? toRich(rec.isi) : '';
+  updateRteState();
   setFormProg(isEdit ? rec.progres : 0);
 
   $('#kDest').classList.toggle('hidden', isEdit);
@@ -932,17 +944,57 @@ function renderPending() {
   }));
 }
 
-/** Unggah antrean {file, kategori} satu per satu. onStep(i, total, name) untuk progres. */
+/**
+ * Panggil fungsi server yang menyusun PDF lalu kembalikan detail terbaru.
+ * (Fungsi PDF di server bersifat async; bila nilai baliknya tidak terkirim,
+ * detail diambil ulang dengan getDetail.)
+ */
+async function apiDetail(fn, id, ...args) {
+  let d = null;
+  try { d = await api(fn, id, ...args); } catch (e) { throw e; }
+  if (!d || !d.record) d = await api('getDetail', id);
+  if (d && d.record) upsert(d.record);
+  return d;
+}
+
+/**
+ * Unggah antrean {file, kategori}:
+ * • FOTO → dikompres lalu dikirim LANGSUNG ke laporan PDF (tidak disimpan di Drive),
+ *   dalam beberapa kelompok agar tiap pengiriman tidak terlalu besar.
+ * • Dokumen & video → disimpan di folder kegiatan / "Bukti Dukung".
+ * onStep(i, total, name) untuk progres. built=true bila PDF sudah tersusun ulang.
+ */
+const FOTO_BATCH_BYTES = 6 * 1024 * 1024;
 async function uploadItems(id, items, onStep) {
-  let rec = null, ok = 0;
-  for (let i = 0; i < items.length; i++) {
-    if (onStep) onStep(i, items.length, items[i].file.name);
-    try {
-      const res = await api('uploadDokumentasi', id, await fileToPayload(items[i].file, items[i].kategori));
-      rec = res.record; upsert(rec); ok++;
-    } catch (e) { toast(items[i].file.name + ': ' + e, 'err'); }
+  let ok = 0, built = false, step = 0;
+  const total = items.length;
+  const isPhoto = it => /^image\//i.test(it.file.type) && !/heic|heif/i.test(it.file.type);
+  const docs = items.filter(it => !isPhoto(it)), photos = items.filter(isPhoto);
+
+  for (const it of docs) {
+    if (onStep) onStep(step++, total, it.file.name);
+    try { const res = await api('uploadDokumentasi', id, await fileToPayload(it.file, it.kategori)); upsert(res.record); ok++; }
+    catch (e) { toast(it.file.name + ': ' + e, 'err'); }
   }
-  return { ok: ok, rec: rec };
+
+  let batch = [], size = 0;
+  const flush = async () => {
+    if (!batch.length) return;
+    const send = batch; batch = []; size = 0;
+    if (onStep) onStep(Math.min(step, total - 1), total, 'menyusun ' + send.length + ' foto ke laporan PDF');
+    try {
+      await apiDetail('tambahFotoLaporan', id, send.map(p => ({ name: p.name, data: p.data, mimeType: p.mimeType, kategori: p.kategori })));
+      ok += send.length; built = true;
+    } catch (e) { toast('Foto gagal masuk ke PDF: ' + e, 'err'); }
+  };
+  for (const it of photos) {
+    if (onStep) onStep(step++, total, it.file.name);
+    const p = await fileToPayload(it.file, it.kategori);
+    if (size + p.data.length > FOTO_BATCH_BYTES) await flush();
+    batch.push(p); size += p.data.length;
+  }
+  await flush();
+  return { ok: ok, built: built };
 }
 
 function pickFiles(sel, cb) {
@@ -959,7 +1011,7 @@ async function submitForm(e) {
     kegiatan: $('#kNama').value.trim(),
     tanggal: $('#kTanggal').value,
     pic: $('#kPic').value.trim(),
-    isi: $('#kIsi').value,
+    isi: cleanRich($('#kIsi').innerHTML),
     progres: Number($('#kProg').value),
     tahun: Number($('#kTahun').value),
     bulan: Number($('#kBulan').value),
@@ -974,12 +1026,19 @@ async function submitForm(e) {
     let rec = await api('saveKegiatan', payload);
     upsert(rec);
     if (!id) lastSet({ tahun: payload.tahun, bulan: payload.bulan, folderId: payload.folderId, pic: payload.pic });
+    let built = false;
     if (!id && S.pending.length) {
-      await uploadItems(rec.id, S.pending.slice(), (i, n) => {
-        btn.innerHTML = '<span class="spinner sm"></span> Mengunggah ' + (i + 1) + '/' + n + '…';
+      const res = await uploadItems(rec.id, S.pending.slice(), (i, n, name) => {
+        btn.innerHTML = '<span class="spinner sm"></span> ' + (/^menyusun/.test(name) ? 'Menyusun PDF…' : 'Mengunggah ' + (i + 1) + '/' + n + '…');
       });
+      built = res.built;
       S.pending.forEach(p => { if (p.url) URL.revokeObjectURL(p.url); });
       S.pending = [];
+    }
+    if (!built) {
+      btn.innerHTML = '<span class="spinner sm"></span> Menyusun laporan PDF…';
+      try { await apiDetail('buatLaporanPdf', rec.id); }
+      catch (e) { toast('Laporan PDF gagal dibuat: ' + e + ' — coba "Perbarui PDF" di detail kegiatan.', 'err'); }
     }
     setBtnBusy(btn, false);
     closeModal('mKegiatan');
@@ -992,13 +1051,167 @@ async function submitForm(e) {
   }
 }
 
-function fileToPayload(f, kategori) {
+async function fileToPayload(f, kategori) {
+  kategori = kategori || guessKategori(f);
+  f = await shrinkImage(f);
   return new Promise((resolve, reject) => {
     const r = new FileReader();
-    r.onload = () => resolve({ name: f.name, mimeType: f.type || 'application/octet-stream', data: String(r.result).split(',')[1], kategori: kategori || guessKategori(f) });
+    r.onload = () => resolve({ name: f.name, mimeType: f.type || 'application/octet-stream', data: String(r.result).split(',')[1], kategori: kategori });
     r.onerror = () => reject('Gagal membaca file ' + f.name);
     r.readAsDataURL(f);
   });
+}
+
+/**
+ * Hemat kuota Drive: setiap foto (> 300 KB) dikompres di perangkat ke sisi
+ * terpanjang 1280 px (JPEG ±150–300 KB) sebelum diunggah. Ukuran ini sudah
+ * tajam untuk laporan PDF A4, unggahan lebih cepat, dan orientasi foto HP benar.
+ */
+const SHRINK_MIN_BYTES = 300 * 1024, SHRINK_MAX_PX = 1280, SHRINK_QUALITY = 0.8;
+function shrinkImage(f) {
+  return new Promise(resolve => {
+    // Semua foto dijadikan JPEG (format yang ditanam ke PDF); JPEG kecil dibiarkan apa adanya
+    if (!/^image\/(jpeg|png|webp|gif|bmp)$/i.test(f.type) || (/jpeg/i.test(f.type) && f.size < SHRINK_MIN_BYTES)) return resolve(f);
+    const url = URL.createObjectURL(f), img = new Image();
+    img.onload = () => {
+      const s = Math.min(1, SHRINK_MAX_PX / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); // PNG transparan → latar putih
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => {
+        if (!b || (b.size >= f.size && /jpeg/i.test(f.type))) return resolve(f);
+        resolve(new File([b], f.name.replace(/\.(png|webp|jpe?g)$/i, '') + '.jpg', { type: 'image/jpeg', lastModified: Date.now() }));
+      }, 'image/jpeg', SHRINK_QUALITY);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(f); };
+    img.src = url;
+  });
+}
+
+/* =====================================================================
+ *  EDITOR WYSIWYG (Isi Kegiatan)
+ * ===================================================================== */
+const RICH_OK = { P: 1, BR: 1, B: 1, STRONG: 1, I: 1, EM: 1, U: 1, S: 1, STRIKE: 1, UL: 1, OL: 1, LI: 1,
+  H2: 1, H3: 1, H4: 1, BLOCKQUOTE: 1, A: 1, DIV: 1, SPAN: 1, HR: 1, SUB: 1, SUP: 1 };
+const RICH_MAP = { H1: 'H2', H5: 'H4', H6: 'H4', STRIKE: 'S', SECTION: 'DIV', ARTICLE: 'DIV', TD: 'SPAN', TH: 'SPAN', TR: 'DIV', PRE: 'P' };
+const RICH_DROP = { SCRIPT: 1, STYLE: 1, IFRAME: 1, OBJECT: 1, EMBED: 1, SVG: 1, MATH: 1, TEMPLATE: 1, NOSCRIPT: 1, HEAD: 1, TITLE: 1, META: 1, LINK: 1, IMG: 1, VIDEO: 1, AUDIO: 1, CANVAS: 1, FORM: 1, INPUT: 1, BUTTON: 1, SELECT: 1, TEXTAREA: 1 };
+
+/** Bersihkan HTML (ketikan / tempelan dari Word, web, dll.) → hanya format yang didukung laporan. */
+function cleanRich(html) {
+  const doc = new DOMParser().parseFromString('<div>' + String(html || '') + '</div>', 'text/html');
+  const walk = (src, dst) => {
+    src.childNodes.forEach(n => {
+      if (n.nodeType === 3) { dst.appendChild(document.createTextNode(n.nodeValue)); return; }
+      if (n.nodeType !== 1 || RICH_DROP[n.tagName]) return;
+      let tag = RICH_MAP[n.tagName] || n.tagName;
+      // Format inline dari style (mis. hasil tempel Google Docs)
+      const st = n.getAttribute('style') || '';
+      if (tag === 'SPAN') {
+        let el = null, inner = null;
+        const wrap = t => { const e = document.createElement(t); if (inner) inner.appendChild(e); else el = e; inner = e; };
+        if (/font-weight\s*:\s*(bold|[6-9]00)/i.test(st)) wrap('b');
+        if (/font-style\s*:\s*italic/i.test(st)) wrap('i');
+        if (/text-decoration[^;]*underline/i.test(st)) wrap('u');
+        if (el) { walk(n, inner); dst.appendChild(el); } else walk(n, dst);
+        return;
+      }
+      if (!RICH_OK[tag]) { walk(n, dst); return; }
+      const out = document.createElement(tag.toLowerCase());
+      if (tag === 'A') {
+        const h = n.getAttribute('href') || '';
+        if (/^(https?:|mailto:)/i.test(h)) { out.setAttribute('href', h); out.setAttribute('target', '_blank'); }
+      }
+      const al = (st.match(/text-align\s*:\s*(left|center|right|justify)/i) || [])[1] || n.getAttribute('align');
+      if (al && /^(P|H2|H3|H4|DIV|LI|BLOCKQUOTE)$/.test(tag) && /^(left|center|right|justify)$/i.test(al)) out.style.textAlign = al.toLowerCase();
+      walk(n, out);
+      dst.appendChild(out);
+    });
+  };
+  const raw = document.createElement('div');
+  walk(doc.body.firstChild, raw);
+  // Teks lepas di tingkat atas → bungkus jadi paragraf agar rapi di PDF
+  const box = document.createElement('div');
+  let para = null;
+  Array.from(raw.childNodes).forEach(n => {
+    const block = n.nodeType === 1 && /^(P|UL|OL|H2|H3|H4|BLOCKQUOTE|DIV|HR)$/.test(n.tagName);
+    if (block) { para = null; box.appendChild(n); return; }
+    if (n.nodeType === 1 && n.tagName === 'BR' && para) { para = null; return; }
+    if (!para) { para = document.createElement('p'); box.appendChild(para); }
+    para.appendChild(n);
+  });
+  Array.from(box.querySelectorAll('p')).forEach(p => { if (!p.textContent.trim() && !p.querySelector('br')) p.remove(); });
+  const text = box.textContent.replace(/ /g, ' ').trim();
+  return text ? box.innerHTML : '';
+}
+
+/** Isi lama (teks biasa) → paragraf; isi HTML → dibersihkan. */
+function toRich(s) {
+  s = String(s || '');
+  if (!s) return '';
+  if (/<\/?(p|br|b|strong|i|em|u|s|ul|ol|li|h[2-4]|blockquote|div)\b/i.test(s)) return cleanRich(s);
+  return s.split(/\n{2,}/).map(p => '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>').join('');
+}
+function stripHtml(s) {
+  s = String(s || '');
+  if (s.indexOf('<') < 0) return s;
+  const d = new DOMParser().parseFromString(s.replace(/<(br|\/p|\/li|\/h[2-4]|\/div)[^>]*>/gi, '$& '), 'text/html');
+  return (d.body.textContent || '').replace(/\s+/g, ' ').trim();
+}
+
+function rteExec(cmd, val) {
+  $('#kIsi').focus();
+  document.execCommand(cmd, false, val == null ? null : val);
+  updateRteState();
+}
+function currentBlock() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return '';
+  let n = sel.anchorNode;
+  const ed = $('#kIsi');
+  while (n && n !== ed) {
+    if (n.nodeType === 1 && /^(H2|H3|H4|BLOCKQUOTE|P|LI)$/.test(n.tagName)) return n.tagName.toLowerCase();
+    n = n.parentNode;
+  }
+  return '';
+}
+function updateRteState() {
+  const ed = $('#kIsi');
+  const sel = window.getSelection();
+  const inside = sel.rangeCount && ed.contains(sel.anchorNode);
+  const blk = inside ? currentBlock() : '';
+  $$('#kRteBar [data-cmd]').forEach(b => {
+    let on = false;
+    try { on = inside && !/undo|redo|removeFormat/.test(b.dataset.cmd) && document.queryCommandState(b.dataset.cmd); } catch (e) { /* abaikan */ }
+    b.classList.toggle('on', !!on);
+  });
+  $$('#kRteBar [data-block]').forEach(b => b.classList.toggle('on', inside && b.dataset.block !== 'p' && b.dataset.block === blk));
+}
+function bindRte() {
+  const ed = $('#kIsi'), bar = $('#kRteBar');
+  try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch (e) { /* abaikan */ }
+  // mousedown + preventDefault agar seleksi teks tidak hilang saat tombol diklik
+  bar.addEventListener('mousedown', e => { if (e.target.closest('button')) e.preventDefault(); });
+  bar.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.cmd) return rteExec(b.dataset.cmd);
+    const tag = b.dataset.block;
+    rteExec('formatBlock', '<' + (currentBlock() === tag && tag !== 'p' ? 'p' : tag) + '>'); // klik lagi = kembali ke paragraf
+  });
+  ed.addEventListener('paste', e => {
+    const cd = e.clipboardData; if (!cd) return;
+    e.preventDefault();
+    const html = cd.getData('text/html');
+    const clean = html ? cleanRich(html) : toRich(cd.getData('text/plain'));
+    if (clean) document.execCommand('insertHTML', false, clean);
+  });
+  ed.addEventListener('drop', e => { if (e.dataTransfer && e.dataTransfer.files.length) e.preventDefault(); });
+  ed.addEventListener('input', () => { if (!ed.textContent.trim() && !ed.querySelector('li')) ed.innerHTML = ''; updateRteState(); });
+  ed.addEventListener('keyup', updateRteState);
+  ed.addEventListener('mouseup', updateRteState);
+  document.addEventListener('selectionchange', () => { if ($('#mKegiatan').classList.contains('open')) updateRteState(); });
 }
 
 function bindDrop(zone, onFiles) {
@@ -1209,20 +1422,27 @@ function renderDrawer() {
 
   const buktiHtml = loading ? '' : (bukti.length ? '<div class="bk-list">' + bukti.map(f => {
       const ext = (f.name.split('.').pop() || 'FILE').slice(0, 4).toUpperCase();
-      return '<div class="bk"><div class="bk-ic">' + esc(ext) + '</div><div class="grow"><div class="n ellipsis" title="' + esc(f.name) + '">' + esc(f.name) + '</div>' +
-        '<div class="m">' + fmtSize(f.size) + ' · ' + fmtDateTime(f.created) + '</div></div>' +
+      const thumb = f.foto ? '<div class="bk-ic bk-foto">' + ic('image', 18) + '</div>'
+        : f.mimeType.indexOf('image/') === 0
+          ? '<div class="bk-ic bk-img"><img src="' + esc(f.thumb) + '" referrerpolicy="no-referrer" loading="lazy" alt="" onerror="this.parentNode.textContent=\'' + esc(ext) + '\'"></div>'
+          : '<div class="bk-ic">' + esc(ext) + '</div>';
+      return '<div class="bk">' + thumb + '<div class="grow"><div class="n ellipsis" title="' + esc(f.name) + '">' + esc(f.name) + '</div>' +
+        '<div class="m">' + (f.embedded ? '<span class="in-pdf">di PDF</span> ' : '') + fmtSize(f.size) + ' · ' + fmtDateTime(f.created) + '</div></div>' +
         '<div class="acts"><a href="' + esc(f.url) + '" target="_blank" rel="noopener" title="Buka">' + ic('external', 14) + '</a>' +
         '<button type="button" data-del-file="' + esc(f.id) + '" title="Hapus">' + ic('trash', 14) + '</button></div></div>';
     }).join('') + '</div>' : '<div class="empty-mini" style="padding:16px">Belum ada bukti dukung.</div>');
 
   const filesHtml = loading
     ? '<div class="files">' + [1, 2, 3].map(() => '<div class="skeleton" style="height:130px"></div>').join('') + '</div>'
-    : (dok.length ? '<div class="files">' + dok.map(f => {
+    : (dok.length ? '<div class="files">' + dok.map((f, i) => {
         const isImg = f.mimeType.indexOf('image/') === 0;
         const ext = (f.name.split('.').pop() || 'FILE').slice(0, 5).toUpperCase();
-        return '<div class="fi"><a href="' + esc(f.url) + '" target="_blank" rel="noopener" title="' + esc(f.name) + '"><div class="fi-thumb">' +
-          (isImg ? '<img src="' + esc(f.thumb) + '" referrerpolicy="no-referrer" loading="lazy" alt="" onerror="imgFallback(this,\'' + esc(ext) + '\')">'
+        const noFoto = dok.filter(x => x.foto).length - dok.filter(x => x.foto).indexOf(f); // urutan seperti di lampiran PDF
+        return '<div class="fi"><a href="' + esc(f.url) + '" target="_blank" rel="noopener" title="' + esc(f.foto ? 'Buka laporan PDF — ' + f.name : f.name) + '"><div class="fi-thumb">' +
+          (f.foto ? '<div class="foto-ph">' + ic('image', 24) + '<span>Foto ' + noFoto + '</span></div>'
+          : isImg ? '<img src="' + esc(f.thumb) + '" referrerpolicy="no-referrer" loading="lazy" alt="" onerror="imgFallback(this,\'' + esc(ext) + '\')">'
                  : '<div style="display:flex;flex-direction:column;align-items:center">' + ic(f.mimeType.indexOf('video') === 0 ? 'activity' : 'file', 26) + '<span class="fi-ext">' + esc(ext) + '</span></div>') +
+          (f.embedded ? '<span class="fi-pdf">di PDF</span>' : '') +
           '</div><div class="fi-name ellipsis">' + esc(f.name) + '</div><div class="fi-size">' + fmtSize(f.size) + '</div></a>' +
           '<button class="fi-del" data-del-file="' + esc(f.id) + '" title="Hapus file">' + ic('trash', 14) + '</button></div>';
       }).join('') + '</div>' : '<div class="empty-mini" style="padding:16px">Belum ada foto/video dokumentasi.</div>');
@@ -1243,6 +1463,12 @@ function renderDrawer() {
     '</div><button class="icon-btn" id="drClose" aria-label="Tutup">' + ic('x') + '</button></div>' +
 
     '<div class="dr-body">' +
+      '<div class="dr-sec"><h4>Laporan PDF</h4><div class="pdf-card"><div class="pdf-ic">PDF</div>' +
+        '<div class="grow"><div class="t ellipsis">Laporan Kegiatan - ' + esc(k.kegiatan) + '.pdf</div>' +
+        '<div class="s" id="dPdfInfo">' + (k.docUrl ? 'Info, uraian, foto, bukti dukung & riwayat progres' : 'Belum dibuat') + '</div></div>' +
+        '<div class="acts">' + (k.docUrl ? '<a class="btn primary sm" href="' + esc(k.docUrl) + '" target="_blank" rel="noopener">' + ic('external', 13) + 'Buka</a>' : '') +
+        '<button class="btn ghost sm" id="dPdf" title="Susun ulang PDF dengan data & lampiran terbaru">' + ic('refresh', 13) + (k.docUrl ? 'Perbarui' : 'Buat PDF') + '</button></div>' +
+      '</div></div>' +
       '<div class="dr-sec"><h4>Progres Kegiatan</h4><div class="prog-box">' +
         '<div class="ring">' + ringSvg(k.progres) + '<div class="ring-val"><div><b id="ringVal">' + k.progres + '%</b><small id="ringSt">' + statusOf(k.progres) + '</small></div></div></div>' +
         '<div class="prog-ctrl">' +
@@ -1251,7 +1477,7 @@ function renderDrawer() {
           '<div class="row"><input id="dNote" placeholder="Catatan progres (opsional)…" maxlength="200"><button class="btn primary" id="dSaveProg" disabled>Simpan</button></div>' +
         '</div></div></div>' +
 
-      '<div class="dr-sec"><h4>Isi Kegiatan</h4><div class="isi">' + (esc(k.isi) || '<span class="muted">Belum ada isi kegiatan.</span>') + '</div></div>' +
+      '<div class="dr-sec"><h4>Isi Kegiatan</h4><div class="isi rich">' + (toRich(k.isi) || '<span class="muted">Belum ada isi kegiatan.</span>') + '</div></div>' +
 
       '<div class="dr-sec"><h4>Dokumentasi &amp; Bukti Dukung <span class="cnt">' + (loading ? k.jumlahFile : files.length) + '</span></h4>' +
         '<div class="upload-zone" id="dZone"><div class="up-actions">' +
@@ -1259,6 +1485,7 @@ function renderDrawer() {
           '<button type="button" class="up-btn" id="dDoc">' + ic('image', 22) + '<b>Upload Dokumentasi</b><small>Foto / video</small></button>' +
           '<button type="button" class="up-btn" id="dBukti">' + ic('paperclip', 22) + '<b>Upload Bukti Dukung</b><small>PDF, Word, Excel, scan</small></button>' +
         '</div><div class="up-drop">atau tarik &amp; lepas file ke sini (gambar/video → dokumentasi, dokumen → bukti dukung)</div></div>' +
+        '<div class="pdf-note">' + ic('file', 14) + '<span><b>Foto langsung masuk ke dalam laporan PDF</b> dan tidak disimpan sebagai file di Google Drive (hemat kuota). Untuk melihat foto, buka PDF-nya. Dokumen (PDF, Word, Excel) disimpan di folder "Bukti Dukung".</span></div>' +
         '<div id="dUpl"></div>' +
         '<div class="sub-h">' + ic('image', 15) + '<span style="flex:1;margin-left:6px">Foto &amp; Video Dokumentasi</span><small>' + (loading ? '' : dok.length + ' file') + '</small></div>' + filesHtml +
         '<div class="sub-h">' + ic('paperclip', 15) + '<span style="flex:1;margin-left:6px">Bukti Dukung</span><small>' + (loading ? '' : bukti.length + ' file') + '</small></div>' + buktiHtml +
@@ -1273,7 +1500,7 @@ function renderDrawer() {
 
     '<div class="dr-foot"><button class="btn danger-ghost" id="dDelete">' + ic('trash', 15) + 'Hapus</button><span class="sp"></span>' +
       '<a class="btn ghost" href="' + esc(k.folderUrl) + '" target="_blank" rel="noopener">' + ic('folder', 15) + 'Folder</a>' +
-      (k.docUrl ? '<a class="btn ghost" href="' + esc(k.docUrl) + '" target="_blank" rel="noopener">' + ic('file', 15) + 'Dokumen</a>' : '') +
+      (k.docUrl ? '<a class="btn ghost" href="' + esc(k.docUrl) + '" target="_blank" rel="noopener">' + ic('file', 15) + 'PDF</a>' : '') +
       '<button class="btn primary" id="dEdit">' + ic('edit', 15) + 'Edit</button></div>';
 
   bindDrawer(k);
@@ -1283,7 +1510,7 @@ function bindDrawer(k) {
   $('#drClose').addEventListener('click', closeDrawer);
   $('#dEdit').addEventListener('click', () => openForm(findRec(k.id) || k));
   $('#dDelete').addEventListener('click', async () => {
-    const ok = await confirmDialog('Hapus kegiatan ini?', '“' + k.kegiatan + '” akan dihapus dari aplikasi dan dokumen ringkasannya dipindahkan ke Sampah. File dokumentasi tetap tersimpan di folder Drive.');
+    const ok = await confirmDialog('Hapus kegiatan ini?', '“' + k.kegiatan + '” akan dihapus dari aplikasi dan laporan PDF-nya (berisi semua foto) dipindahkan ke Sampah Drive, masih bisa dipulihkan ±30 hari. File dokumentasi tetap tersimpan di folder Drive.');
     if (!ok) return;
     try {
       await api('deleteKegiatan', k.id);
@@ -1314,14 +1541,17 @@ function bindDrawer(k) {
   saveBtn.addEventListener('click', async () => {
     setBtnBusy(saveBtn, true, 'Menyimpan');
     try {
-      const d = await api('updateProgress', k.id, Number(range.value), $('#dNote').value);
-      S.detail = d; upsert(d.record);
-      render(); renderDrawer();
-      toast('Progres diperbarui menjadi ' + d.record.progres + '%');
+      let d = await api('updateProgress', k.id, Number(range.value), $('#dNote').value);
+      upsert(d.record);
+      toast('Progres diperbarui menjadi ' + d.record.progres + '% — menyusun ulang PDF…');
+      saveBtn.innerHTML = '<span class="spinner sm"></span> PDF…';
+      try { d = await apiDetail('buatLaporanPdf', k.id); } catch (e) { toast('PDF gagal diperbarui: ' + e, 'err'); }
+      if (S.detail && S.detail.record.id === k.id) { S.detail = d; renderDrawer(); }
+      render();
     } catch (e) { setBtnBusy(saveBtn, false); toast(e, 'err'); }
   });
 
-  // Upload: kamera / dokumentasi / bukti dukung → langsung terkirim ke Drive
+  // Upload: foto → langsung ke dalam PDF; dokumen/video → folder kegiatan
   const sendNow = async (fileList, kategori) => {
     const items = validFiles(fileList).map(f => ({ file: f, kategori: kategori || guessKategori(f) }));
     if (!items.length) return;
@@ -1329,19 +1559,32 @@ function bindDrawer(k) {
     $$('#dZone .up-btn').forEach(b => { b.disabled = true; });
     const res = await uploadItems(k.id, items, (i, n, name) => {
       const pct = Math.round(i / n * 100);
-      box.innerHTML = '<div class="up-progress"><span><span class="spinner sm"></span> Mengunggah ' + (i + 1) + ' dari ' + n + ': ' + esc(name) + '</span>' + bar(pct) + '</div>';
+      box.innerHTML = '<div class="up-progress"><span><span class="spinner sm"></span> ' +
+        (/^menyusun/.test(name) ? 'Menyusun ' + esc(name.replace(/^menyusun /, '')) + '…' : 'Memproses ' + (i + 1) + ' dari ' + n + ': ' + esc(name)) + '</span>' + bar(pct) + '</div>';
     });
-    if (res.ok) {
-      const kinds = Array.from(new Set(items.map(x => KAT_LABEL[x.kategori].toLowerCase()))).join(' & ');
-      toast(res.ok + ' file ' + kinds + ' terunggah ke Drive');
-    }
-    if (S.detail && S.detail.record.id === k.id) {
-      try {
-        const d = await api('getDetail', k.id);
-        S.detail = d; upsert(d.record); renderDrawer(); render();
-      } catch (e) { toast(e, 'err'); }
-    }
+    try {
+      let d;
+      if (res.ok && !res.built) {
+        box.innerHTML = '<div class="up-progress"><span><span class="spinner sm"></span> Menyusun laporan PDF…</span></div>';
+        d = await apiDetail('buatLaporanPdf', k.id);
+      } else d = await apiDetail('getDetail', k.id);
+      if (S.detail && S.detail.record.id === k.id) { S.detail = d; renderDrawer(); }
+      render();
+      if (res.ok) toast(res.ok + ' lampiran ditambahkan · laporan PDF diperbarui');
+    } catch (e) { toast(e, 'err'); box.innerHTML = ''; $$('#dZone .up-btn').forEach(b => { b.disabled = false; }); }
   };
+
+  // Perbarui laporan PDF secara manual
+  $('#dPdf').addEventListener('click', async () => {
+    const b = $('#dPdf');
+    setBtnBusy(b, true, 'Menyusun…');
+    $('#dPdfInfo').textContent = 'Sedang menyusun PDF (memuat foto bisa memakan waktu)…';
+    try {
+      const d = await apiDetail('buatLaporanPdf', k.id);
+      if (S.detail && S.detail.record.id === k.id) { S.detail = d; renderDrawer(); }
+      toast('Laporan PDF berhasil diperbarui');
+    } catch (e) { setBtnBusy(b, false); toast(e, 'err'); }
+  });
   $('#dCam').addEventListener('click', async () => {
     const shots = await openCamera(k.kegiatan);
     if (shots.length) sendNow(shots, 'dokumentasi');
@@ -1352,13 +1595,21 @@ function bindDrawer(k) {
 
   $$('#drawer [data-del-file]').forEach(b => b.addEventListener('click', async e => {
     e.preventDefault(); e.stopPropagation();
-    const ok = await confirmDialog('Hapus file ini?', 'File akan dipindahkan ke Sampah Google Drive.');
+    const fid = b.dataset.delFile, isFoto = fid.indexOf('foto:') === 0;
+    const ok = await confirmDialog(isFoto ? 'Hapus foto ini dari laporan?' : 'Hapus file ini?',
+      isFoto ? 'Foto akan dikeluarkan dari laporan PDF. Karena foto hanya tersimpan di dalam PDF, foto ini tidak dapat dikembalikan.'
+             : 'File akan dipindahkan ke Sampah Google Drive.');
     if (!ok) return;
+    b.disabled = true;
     try {
-      const d = await api('deleteFile', k.id, b.dataset.delFile);
-      S.detail = d; upsert(d.record); renderDrawer(); render();
-      toast('File dihapus');
-    } catch (err) { toast(err, 'err'); }
+      toast(isFoto ? 'Menghapus foto & menyusun ulang PDF…' : 'Menghapus file…');
+      let d;
+      if (isFoto) d = await apiDetail('hapusFotoLaporan', k.id, fid.slice(5));
+      else { await api('deleteFile', k.id, fid); d = await apiDetail('buatLaporanPdf', k.id); }
+      if (S.detail && S.detail.record.id === k.id) { S.detail = d; renderDrawer(); }
+      render();
+      toast(isFoto ? 'Foto dihapus dari laporan' : 'File dihapus');
+    } catch (err) { b.disabled = false; toast(err, 'err'); }
   }));
 }
 </script>

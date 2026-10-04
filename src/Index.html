@@ -223,10 +223,36 @@
           <div class="locked" id="kLockedPath"></div>
         </div>
 
-        <label class="fld span-2">
-          <span>Isi Kegiatan</span>
-          <textarea id="kIsi" rows="6" placeholder="Tuliskan uraian, hasil, notulen, atau catatan kegiatan…"></textarea>
-        </label>
+        <div class="fld span-2">
+          <span>Isi Kegiatan <small class="muted">(tampil di laporan PDF)</small></span>
+          <div class="rte" id="kRte">
+            <div class="rte-bar" id="kRteBar" role="toolbar" aria-label="Format teks">
+              <button type="button" data-cmd="bold" title="Tebal (Ctrl+B)"><b>B</b></button>
+              <button type="button" data-cmd="italic" title="Miring (Ctrl+I)"><i style="font-family:Georgia,serif">I</i></button>
+              <button type="button" data-cmd="underline" title="Garis bawah (Ctrl+U)"><u>U</u></button>
+              <button type="button" data-cmd="strikeThrough" title="Coret"><s>S</s></button>
+              <span class="sep"></span>
+              <button type="button" data-block="h2" title="Judul">H1</button>
+              <button type="button" data-block="h3" title="Sub-judul">H2</button>
+              <button type="button" data-block="p" title="Paragraf biasa">¶</button>
+              <span class="sep"></span>
+              <button type="button" data-cmd="insertUnorderedList" title="Daftar berbutir"><i data-ic="ul" data-s="17"></i></button>
+              <button type="button" data-cmd="insertOrderedList" title="Daftar bernomor"><i data-ic="ol" data-s="17"></i></button>
+              <button type="button" data-block="blockquote" title="Kutipan / catatan"><i data-ic="quote" data-s="17"></i></button>
+              <span class="sep"></span>
+              <button type="button" data-cmd="justifyLeft" title="Rata kiri"><i data-ic="alignL" data-s="17"></i></button>
+              <button type="button" data-cmd="justifyCenter" title="Rata tengah"><i data-ic="alignC" data-s="17"></i></button>
+              <button type="button" data-cmd="justifyRight" title="Rata kanan"><i data-ic="alignR" data-s="17"></i></button>
+              <button type="button" data-cmd="justifyFull" title="Rata kiri-kanan"><i data-ic="alignJ" data-s="17"></i></button>
+              <span class="sep"></span>
+              <button type="button" data-cmd="undo" title="Urungkan (Ctrl+Z)"><i data-ic="undo" data-s="17"></i></button>
+              <button type="button" data-cmd="redo" title="Ulangi (Ctrl+Y)"><i data-ic="redo" data-s="17"></i></button>
+              <button type="button" data-cmd="removeFormat" title="Hapus format"><i data-ic="eraser" data-s="17"></i></button>
+            </div>
+            <div class="rte-area rich" id="kIsi" contenteditable="true" spellcheck="true"
+                 data-placeholder="Tuliskan uraian, hasil, notulen, atau catatan kegiatan…"></div>
+          </div>
+        </div>
 
         <div class="fld span-2">
           <span>Progres Kegiatan</span>
@@ -238,7 +264,7 @@
         </div>
 
         <div class="fld span-2" id="kUploadWrap">
-          <span>Dokumentasi &amp; Bukti Dukung <small class="muted">(maks. 25 MB/file)</small></span>
+          <span>Dokumentasi &amp; Bukti Dukung <small class="muted">(foto langsung masuk ke laporan PDF, tanpa disimpan di Drive)</small></span>
           <div class="upload-zone" id="kZone">
             <div class="up-actions">
               <button type="button" class="up-btn cam" id="kCam"><i data-ic="camera" data-s="22"></i><b>Ambil Foto</b><small>Kamera langsung</small></button>

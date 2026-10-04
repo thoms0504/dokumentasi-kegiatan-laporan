@@ -22,9 +22,9 @@ const BULAN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli',
 const SHEET_K = 'Kegiatan';
 const SHEET_R = 'Riwayat Progres';
 const KEYS_K = ['id', 'tahun', 'bulan', 'folderNama', 'folderId', 'folderUrl', 'kegiatan', 'isi',
-  'pic', 'tanggal', 'progres', 'status', 'docId', 'docUrl', 'jumlahFile', 'dibuat', 'diperbarui', 'dibuatOleh', 'folderPath'];
+  'pic', 'tanggal', 'progres', 'status', 'docId', 'docUrl', 'jumlahFile', 'dibuat', 'diperbarui', 'dibuatOleh', 'folderPath', 'fotoJson'];
 const LABEL_K = ['ID', 'Tahun', 'Bulan', 'Folder', 'Folder ID', 'Link Folder', 'Kegiatan', 'Isi Kegiatan',
-  'PIC', 'Tanggal', 'Progres (%)', 'Status', 'Doc ID', 'Link Dokumen', 'Jumlah File', 'Dibuat', 'Diperbarui', 'Dibuat Oleh', 'Path Folder'];
+  'PIC', 'Tanggal', 'Progres (%)', 'Status', 'ID Laporan PDF', 'Link Laporan PDF', 'Jumlah File', 'Dibuat', 'Diperbarui', 'Dibuat Oleh', 'Path Folder', 'Data Foto (tersimpan di PDF)'];
 const MAX_DEPTH = 8; // batas kedalaman sub-folder di dalam folder kegiatan
 const LABEL_R = ['Waktu', 'ID Kegiatan', 'Progres (%)', 'Catatan', 'Oleh'];
 
@@ -98,12 +98,7 @@ function setup() {
 }
 
 // ====== HELPER UMUM =========================================================
-function getRoot_() {
-  if (!ROOT_FOLDER_ID || ROOT_FOLDER_ID.indexOf('GANTI_') === 0) {
-    throw new Error('ROOT_FOLDER_ID belum diisi. Buka Code.gs dan isi dengan ID folder Google Drive Anda.');
-  }
-  return DriveApp.getFolderById(ROOT_FOLDER_ID);
-}
+function getRoot_() { return DriveApp.getFolderById(ROOT_FOLDER_ID); }
 function nowStr_() { return Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'); }
 function userEmail_() { try { return Session.getActiveUser().getEmail() || ''; } catch (e) { return ''; } }
 function pad2_(n) { return ('0' + n).slice(-2); }
@@ -203,6 +198,7 @@ function rowToObj_(r) {
   o.isi = String(o.isi);
   o.pic = String(o.pic);
   o.folderPath = String(o.folderPath || o.folderNama);
+  o.fotoJson = String(o.fotoJson || '');
   return o;
 }
 
@@ -254,44 +250,14 @@ function newId_() {
     Math.random().toString(36).slice(2, 5).toUpperCase();
 }
 
-// ====== GOOGLE DOC RINGKASAN KEGIATAN =======================================
-function writeDoc_(rec) {
-  const doc = DocumentApp.openById(rec.docId);
-  doc.setName('Kegiatan - ' + rec.kegiatan);
-  const body = doc.getBody();
-  body.clear();
-  body.setMarginTop(48).setMarginBottom(48).setMarginLeft(56).setMarginRight(56);
+// Laporan kegiatan kini berupa PDF — lihat file Laporan.gs
+// (kolom docId/docUrl di database menyimpan file PDF laporan terbaru).
 
-  body.appendParagraph(rec.kegiatan).setHeading(DocumentApp.ParagraphHeading.TITLE);
-  body.appendParagraph(rec.tahun + ' › ' + BULAN[rec.bulan - 1] + ' › ' + String(rec.folderPath || rec.folderNama).split(' / ').join(' › '))
-    .editAsText().setForegroundColor('#64748b').setFontSize(10);
-
-  const rows = [
-    ['Tanggal', rec.tanggal || '-'],
-    ['PIC', rec.pic || '-'],
-    ['Progres', rec.progres + '%  (' + rec.status + ')'],
-    ['Dibuat', rec.dibuat + (rec.dibuatOleh ? ' oleh ' + rec.dibuatOleh : '')],
-    ['Terakhir diperbarui', rec.diperbarui]
-  ];
-  const table = body.appendTable(rows);
-  table.setBorderColor('#e2e8f0');
-  for (let i = 0; i < rows.length; i++) {
-    const c = table.getRow(i).getCell(0);
-    c.setBackgroundColor('#f8fafc').setWidth(150);
-    c.editAsText().setBold(true).setForegroundColor('#334155');
-  }
-
-  body.appendParagraph('Isi Kegiatan').setHeading(DocumentApp.ParagraphHeading.HEADING2);
-  String(rec.isi || '-').split('\n').forEach(function (line) { body.appendParagraph(line); });
-
-  body.appendParagraph('');
-  body.appendParagraph('Dokumen ini dibuat & diperbarui otomatis oleh aplikasi ' + APP_NAME + '.')
-    .editAsText().setItalic(true).setForegroundColor('#94a3b8').setFontSize(9);
-  doc.saveAndClose();
-}
-
-function safeWriteDoc_(rec) {
-  try { if (rec.docId) writeDoc_(rec); } catch (e) { Logger.log('Gagal memperbarui dokumen: ' + e); }
+/** Isi kegiatan (rich text) → HTML aman; batasi ukuran agar muat di sel Sheets. */
+function cleanIsi_(isi) {
+  const html = sanitizeHtml_(String(isi || ''));
+  if (html.length > 45000) throw new Error('Isi kegiatan terlalu panjang (maks. ±45.000 karakter).');
+  return htmlToText_(html) ? html : '';
 }
 
 // ====== STRUKTUR FOLDER =====================================================
@@ -457,6 +423,7 @@ function deleteFolder(folderId) {
   } finally {
     lock.releaseLock();
   }
+  removed.forEach(trashMedia_);
   return { tree: getFolderTree(), level: level, name: f.getName(), removedIds: removed };
 }
 
@@ -503,21 +470,23 @@ function saveKegiatan(d) {
   if (!judul) throw new Error('Nama kegiatan wajib diisi.');
   if (!d.id && !d.folderId) throw new Error('Pilih folder tujuan di Drive.');
 
+  const isi = cleanIsi_(d.isi);
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
+  let rec;
   try {
     const sh = getDb_().getSheetByName(SHEET_K);
     const now = nowStr_();
     const prog = clampProgress_(d.progres);
 
-    // ---- EDIT ----
     if (d.id) {
+      // ---- EDIT ----
       const row = findRow_(sh, d.id);
       if (row < 0) throw new Error('Kegiatan tidak ditemukan.');
-      const rec = rowToObj_(sh.getRange(row, 1, 1, KEYS_K.length).getValues()[0]);
+      rec = rowToObj_(sh.getRange(row, 1, 1, KEYS_K.length).getValues()[0]);
       const oldProg = rec.progres;
       rec.kegiatan = judul;
-      rec.isi = String(d.isi || '');
+      rec.isi = isi;
       rec.pic = String(d.pic || '').trim();
       rec.tanggal = String(d.tanggal || '');
       rec.progres = prog;
@@ -525,46 +494,39 @@ function saveKegiatan(d) {
       rec.diperbarui = now;
       writeRow_(sh, row, rec);
       if (prog !== oldProg) logRiwayat_(rec.id, prog, 'Diperbarui melalui form edit');
-      safeWriteDoc_(rec);
-      return rec;
+    } else {
+      // ---- BARU ----
+      const folder = DriveApp.getFolderById(d.folderId);
+      rec = {
+        id: newId_(),
+        tahun: String(validateYear_(d.tahun)),
+        bulan: validateMonth_(d.bulan),
+        folderNama: folder.getName(),
+        folderId: folder.getId(),
+        folderUrl: folder.getUrl(),
+        kegiatan: judul,
+        isi: isi,
+        pic: String(d.pic || '').trim(),
+        tanggal: String(d.tanggal || ''),
+        progres: prog,
+        status: statusOf_(prog),
+        docId: '',
+        docUrl: '',
+        jumlahFile: 0,
+        dibuat: now,
+        diperbarui: now,
+        dibuatOleh: userEmail_(),
+        folderPath: folderPath_(folder)
+      };
+      writeRow_(sh, sh.getLastRow() + 1, rec);
+      logRiwayat_(rec.id, prog, 'Kegiatan dibuat');
     }
-
-    // ---- BARU ----
-    const folder = DriveApp.getFolderById(d.folderId);
-    const rec = {
-      id: newId_(),
-      tahun: String(validateYear_(d.tahun)),
-      bulan: validateMonth_(d.bulan),
-      folderNama: folder.getName(),
-      folderId: folder.getId(),
-      folderUrl: folder.getUrl(),
-      kegiatan: judul,
-      isi: String(d.isi || ''),
-      pic: String(d.pic || '').trim(),
-      tanggal: String(d.tanggal || ''),
-      progres: prog,
-      status: statusOf_(prog),
-      docId: '',
-      docUrl: '',
-      jumlahFile: 0,
-      dibuat: now,
-      diperbarui: now,
-      dibuatOleh: userEmail_(),
-      folderPath: folderPath_(folder)
-    };
-    const doc = DocumentApp.create('Kegiatan - ' + judul);
-    rec.docId = doc.getId();
-    rec.docUrl = doc.getUrl();
-    doc.saveAndClose();
-    DriveApp.getFileById(rec.docId).moveTo(folder);
-    writeDoc_(rec);
-
-    writeRow_(sh, sh.getLastRow() + 1, rec);
-    logRiwayat_(rec.id, prog, 'Kegiatan dibuat');
-    return rec;
   } finally {
     lock.releaseLock();
   }
+  // Laporan PDF disusun lewat panggilan terpisah dari klien (buatLaporanPdf /
+  // tambahFotoLaporan) setelah semua lampiran selesai diunggah.
+  return getRecord_(rec.id).rec;
 }
 
 function updateProgress(id, progres, catatan) {
@@ -578,11 +540,10 @@ function updateProgress(id, progres, catatan) {
     r.rec.diperbarui = nowStr_();
     writeRow_(r.sh, r.row, r.rec);
     logRiwayat_(id, prog, String(catatan || '').trim() || 'Progres diperbarui');
-    safeWriteDoc_(r.rec);
   } finally {
     lock.releaseLock();
   }
-  return getDetail(id);
+  return getDetail(id); // klien lalu memanggil buatLaporanPdf
 }
 
 function deleteKegiatan(id) {
@@ -592,6 +553,7 @@ function deleteKegiatan(id) {
     const r = getRecord_(id);
     if (r.rec.docId) { try { DriveApp.getFileById(r.rec.docId).setTrashed(true); } catch (e) { /* abaikan */ } }
     r.sh.deleteRow(r.row);
+    trashMedia_(id); // foto yang tertanam di laporan ikut ke Sampah
     return true;
   } finally {
     lock.releaseLock();
@@ -602,7 +564,30 @@ function deleteKegiatan(id) {
 const BUKTI_FOLDER = 'Bukti Dukung';
 const TAG_BUKTI = '[Bukti Dukung]';
 
-function fileInfo_(f) {
+/*
+ * PENYIMPANAN FOTO
+ * Foto TIDAK disimpan sebagai file di Drive — foto dikirim klien lewat
+ * tambahFotoLaporan() dan tersimpan HANYA di dalam laporan PDF (lihat Laporan.gs).
+ * Folder "_Media Laporan" hanya dipakai versi sebelumnya; foto lama di sana
+ * otomatis dipindah ke dalam PDF oleh pindahkanFotoKeLaporan() / saat PDF disusun.
+ */
+const MEDIA_ROOT = '_Media Laporan (sistem - jangan dihapus)';
+const isImageMime_ = function (m) { return /^image\//i.test(String(m || '')); };
+
+function mediaRoot_(create) {
+  const root = getRoot_();
+  return findChildFolder_(root, MEDIA_ROOT) || (create ? root.createFolder(MEDIA_ROOT) : null);
+}
+function mediaFolder_(id, create) {
+  const mr = mediaRoot_(create);
+  if (!mr) return null;
+  return findChildFolder_(mr, id) || (create ? mr.createFolder(id) : null);
+}
+function trashMedia_(id) {
+  try { const m = mediaFolder_(id, false); if (m) m.setTrashed(true); } catch (e) { Logger.log(e); }
+}
+
+function fileInfo_(f, embedded) {
   const id = f.getId();
   const desc = String(f.getDescription() || '');
   return {
@@ -612,31 +597,59 @@ function fileInfo_(f) {
     mimeType: f.getMimeType(),
     size: f.getSize(),
     kategori: desc.indexOf(TAG_BUKTI) >= 0 ? 'bukti' : 'dokumentasi',
+    embedded: !!embedded, // true = foto hanya tertanam di PDF (tidak ada di folder kegiatan)
     thumb: 'https://drive.google.com/thumbnail?id=' + id + '&sz=w400',
     created: Utilities.formatDate(f.getDateCreated(), TZ, 'yyyy-MM-dd HH:mm')
   };
 }
 
-/** File dokumentasi ada di folder kegiatan; bukti dukung di subfolder "Bukti Dukung". */
+/** Lampiran kegiatan: foto di folder media, dokumen di folder kegiatan / "Bukti Dukung". */
 function listFiles_(rec) {
   const tag = '[' + rec.id + ']';
   const out = [];
-  const scan = function (folder) {
+  const scan = function (folder, embedded) {
     const it = folder.getFiles();
     while (it.hasNext()) {
       const f = it.next();
       if (f.getId() === rec.docId) continue;
-      if (String(f.getDescription() || '').indexOf(tag) === 0) out.push(fileInfo_(f));
+      if (String(f.getDescription() || '').indexOf(tag) === 0) out.push(fileInfo_(f, embedded));
     }
   };
   try {
     const folder = DriveApp.getFolderById(rec.folderId);
-    scan(folder);
+    scan(folder, false);
     const sub = findChildFolder_(folder, BUKTI_FOLDER);
-    if (sub) scan(sub);
+    if (sub) scan(sub, false);
+    const media = mediaFolder_(rec.id, false);
+    if (media) scan(media, true);
   } catch (e) { Logger.log(e); }
   out.sort(function (a, b) { return a.created < b.created ? 1 : -1; });
   return out;
+}
+
+/**
+ * Jalankan SEKALI dari editor setelah update: memindahkan semua foto lama
+ * (yang masih berupa file di folder kegiatan / "_Media Laporan") ke DALAM
+ * laporan PDF masing-masing, lalu memindahkan file foto lamanya ke Sampah.
+ * Aman dijalankan ulang (lanjut otomatis bila terpotong batas waktu).
+ */
+async function pindahkanFotoKeLaporan() {
+  const start = Date.now();
+  const list = readKegiatan_();
+  let done = 0;
+  for (let i = 0; i < list.length; i++) {
+    if (Date.now() - start > 5 * 60 * 1000) { Logger.log('Batas waktu — jalankan lagi untuk melanjutkan.'); break; }
+    if (await safeBuildPdf_(list[i].id)) done++;
+  }
+  try {
+    const mr = mediaRoot_(false);
+    if (mr && !mr.getFiles().hasNext()) {
+      let empty = true; const it = mr.getFolders();
+      while (it.hasNext()) { const f = it.next(); if (f.getFiles().hasNext()) { empty = false; break; } }
+      if (empty) mr.setTrashed(true);
+    }
+  } catch (e) { Logger.log(e); }
+  Logger.log(done + ' dari ' + list.length + ' laporan disusun ulang; foto lama kini tersimpan di dalam PDF.');
 }
 
 function setFileCount_(id, count) {
@@ -644,7 +657,7 @@ function setFileCount_(id, count) {
   lock.waitLock(30000);
   try {
     const r = getRecord_(id);
-    r.rec.jumlahFile = count;
+    r.rec.jumlahFile = count + fotoMeta_(r.rec).length;
     r.rec.diperbarui = nowStr_();
     writeRow_(r.sh, r.row, r.rec);
     return r.rec;
@@ -661,6 +674,9 @@ function uploadDokumentasi(id, file) {
   if (!file || !file.data) throw new Error('File kosong.');
   const rec = getRecord_(id).rec;
   const isBukti = file.kategori === 'bukti';
+  const isImg = isImageMime_(file.mimeType);
+  // Foto tidak disimpan di Drive — dikirim klien lewat tambahFotoLaporan (langsung ke PDF)
+  if (isImg) throw new Error('Foto dikirim langsung ke laporan PDF. Muat ulang aplikasi lalu coba lagi.');
   let folder = DriveApp.getFolderById(rec.folderId);
   if (isBukti) folder = getOrCreate_(folder, BUKTI_FOLDER);
   const blob = Utilities.newBlob(Utilities.base64Decode(file.data),
@@ -668,7 +684,7 @@ function uploadDokumentasi(id, file) {
   const f = folder.createFile(blob);
   f.setDescription('[' + rec.id + ']' + (isBukti ? TAG_BUKTI + ' Bukti dukung: ' : ' Dokumentasi: ') + rec.kegiatan);
   const updated = setFileCount_(id, listFiles_(rec).length);
-  return { record: updated, file: fileInfo_(f) };
+  return { record: updated, file: fileInfo_(f, isImg) };
 }
 
 function deleteFile(id, fileId) {
@@ -679,10 +695,15 @@ function deleteFile(id, fileId) {
   }
   f.setTrashed(true);
   setFileCount_(id, listFiles_(rec).length);
-  return getDetail(id);
+  return getDetail(id); // klien lalu memanggil buatLaporanPdf
 }
 
 function getDetail(id) {
   const rec = getRecord_(id).rec;
-  return { record: rec, riwayat: readRiwayat_(id), files: listFiles_(rec) };
+  // Foto tersimpan di dalam PDF (bukan file Drive) → tampilkan dari ringkasan fotoJson
+  const fotos = fotoMeta_(rec).map(function (m) {
+    return { id: 'foto:' + m.u, uid: m.u, foto: true, embedded: true, name: m.n, size: m.s || 0, mimeType: 'image/jpeg',
+      kategori: m.k === 'b' ? 'bukti' : 'dokumentasi', created: m.t, url: rec.docUrl, thumb: '' };
+  }).reverse();
+  return { record: rec, riwayat: readRiwayat_(id), files: fotos.concat(listFiles_(rec)) };
 }
