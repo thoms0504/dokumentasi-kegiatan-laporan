@@ -1,581 +1,376 @@
-<style>
-:root{
-  --bg:#f5f7fb; --surface:#ffffff; --surface-2:#f8fafc; --border:#e6eaf0; --border-2:#d5dbe4;
-  --text:#0f172a; --text-2:#334155; --muted:#64748b; --muted-2:#94a3b8;
-  --primary:#2563eb; --primary-600:#1d4ed8; --primary-50:#eff4ff; --primary-100:#dbe6fe;
-  --green:#10b981; --green-50:#ecfdf5; --amber:#f59e0b; --amber-50:#fffbeb;
-  --slate:#94a3b8; --slate-50:#f1f5f9; --red:#ef4444; --red-50:#fef2f2;
-  --radius:14px; --radius-sm:10px;
-  --shadow:0 1px 2px rgba(15,23,42,.04),0 1px 3px rgba(15,23,42,.06);
-  --shadow-lg:0 24px 48px -12px rgba(15,23,42,.25);
-  --sidebar:252px;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%}
-body{font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
-a{color:inherit;text-decoration:none;cursor:pointer}
-button,input,select,textarea{font:inherit;color:inherit}
-.hidden{display:none!important}
-.muted{color:var(--muted)}
-.ellipsis{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ic{flex-shrink:0;display:inline-block;vertical-align:middle}
-h1,h2,h3,h4{letter-spacing:-.01em}
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <?!= include('Style'); ?>
+</head>
+<body>
 
-/* ---------- Layout ---------- */
-.app{display:flex;min-height:100vh}
-.sidebar{width:var(--sidebar);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;inset:0 auto 0 0;z-index:40;transition:transform .25s}
-.brand{display:flex;align-items:center;gap:12px;padding:22px 20px 18px}
-.brand-logo{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;display:grid;place-items:center;box-shadow:0 6px 14px -4px rgba(37,99,235,.5)}
-.brand-name{font-weight:700;font-size:15px}
-.brand-sub{font-size:12px;color:var(--muted)}
-.nav{padding:6px 12px;flex:1;display:flex;flex-direction:column;gap:2px}
-.nav-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted-2);padding:16px 10px 6px}
-.nav-item{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:9px;color:var(--text-2);font-weight:500;transition:background .15s,color .15s}
-.nav-item:hover{background:var(--surface-2);color:var(--text)}
-.nav-item.active{background:var(--primary-50);color:var(--primary)}
-.nav-item span{flex:1}
-.nav-count{font-size:11px;background:var(--slate-50);color:var(--muted);padding:1px 8px;border-radius:99px;font-weight:600}
-.nav-item.active .nav-count{background:var(--primary-100);color:var(--primary)}
-.sidebar-foot{display:flex;gap:10px;align-items:center;padding:14px 18px;border-top:1px solid var(--border);min-width:0}
-.avatar{width:32px;height:32px;border-radius:50%;background:var(--slate-50);display:grid;place-items:center;color:var(--muted);flex-shrink:0}
-.who{min-width:0;font-size:13px;font-weight:500}
-.who small{display:block;color:var(--muted-2);font-size:11px;font-weight:400}
-.sidebar-backdrop{display:none}
+<!-- ============ LOADER ============ -->
+<div id="loader" class="loader">
+  <div class="loader-box">
+    <div class="spinner"></div>
+    <p id="loaderText">Memuat data kegiatan…</p>
+  </div>
+</div>
 
-.main{flex:1;margin-left:var(--sidebar);min-width:0;display:flex;flex-direction:column}
-.topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:16px;padding:16px 32px;background:rgba(245,247,251,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
-.topbar-title{flex:1;min-width:0}
-.topbar-title h1{font-size:20px;font-weight:700}
-.topbar-title p{font-size:13px;color:var(--muted)}
-.topbar-actions{display:flex;align-items:center;gap:10px}
-.content{padding:24px 32px 48px}
-.view{animation:fade .25s ease}
-@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+<div class="app">
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-logo"><i data-ic="file"></i></div>
+      <div>
+        <div class="brand-name">DokuKegiatan</div>
+        <div class="brand-sub">Dokumentasi Kantor</div>
+      </div>
+    </div>
 
-/* ---------- Controls ---------- */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:38px;padding:0 15px;border-radius:9px;border:1px solid transparent;font-weight:600;font-size:13.5px;cursor:pointer;transition:all .15s;white-space:nowrap}
-.btn.sm{height:30px;padding:0 10px;font-size:12.5px;border-radius:8px;gap:5px}
-.btn.primary{background:var(--primary);color:#fff;box-shadow:0 1px 2px rgba(37,99,235,.3)}
-.btn.primary:hover{background:var(--primary-600)}
-.btn.ghost{background:var(--surface);border-color:var(--border);color:var(--text-2)}
-.btn.ghost:hover{background:var(--surface-2);border-color:var(--border-2)}
-.btn.danger{background:var(--red);color:#fff}
-.btn.danger:hover{background:#dc2626}
-.btn.danger-ghost{background:var(--surface);border-color:#fecaca;color:var(--red)}
-.btn.danger-ghost:hover{background:var(--red-50)}
-.btn:disabled{opacity:.6;cursor:not-allowed}
-.icon-btn{width:38px;height:38px;border-radius:9px;border:1px solid var(--border);background:var(--surface);display:inline-grid;place-items:center;cursor:pointer;color:var(--text-2);transition:all .15s;flex-shrink:0}
-.icon-btn:hover{background:var(--surface-2);color:var(--text)}
-.icon-btn.spin .ic{animation:spin .8s linear infinite}
-.only-mobile{display:none}
+    <nav class="nav">
+      <div class="nav-label">Menu</div>
+      <a class="nav-item active" data-view="dashboard"><i data-ic="dashboard"></i><span>Dashboard</span></a>
+      <a class="nav-item" data-view="kegiatan"><i data-ic="list"></i><span>Kegiatan</span><b class="nav-count" id="navCount">0</b></a>
+      <a class="nav-item" data-view="folder"><i data-ic="folder"></i><span>Folder Drive</span></a>
 
-select,input[type=text],input[type=search],input[type=date],input[type=number],input:not([type]),textarea{
-  height:38px;border:1px solid var(--border);background:var(--surface);border-radius:9px;padding:0 12px;outline:none;transition:border .15s,box-shadow .15s;width:100%}
-textarea{height:auto;padding:10px 12px;resize:vertical;line-height:1.6}
-select{appearance:none;padding-right:32px;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center}
-select:focus,input:focus,textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
-.select-wrap{position:relative;display:flex;align-items:center}
-.select-wrap .ic{position:absolute;left:11px;color:var(--muted);pointer-events:none}
-.select-wrap select{padding-left:34px;min-width:150px;font-weight:500}
+      <div class="nav-label">Tautan</div>
+      <a class="nav-item" id="lnkRoot" target="_blank" rel="noopener"><i data-ic="external"></i><span>Buka Google Drive</span></a>
+      <a class="nav-item" id="lnkDb" target="_blank" rel="noopener"><i data-ic="sheet"></i><span>Database Sheets</span></a>
+    </nav>
 
-/* ---------- Cards ---------- */
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
-.card-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;gap:12px}
-.card-head h3{font-size:15px;font-weight:650;font-weight:600}
-.card-head p{font-size:12.5px}
+    <div class="sidebar-foot">
+      <div class="avatar"><i data-ic="user" data-s="16"></i></div>
+      <div class="who">
+        <small>Masuk sebagai</small>
+        <div id="userEmail" class="ellipsis">Pengguna</div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
-.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:20px}
-.kpi{display:flex;flex-direction:column;gap:12px}
-.kpi-top{display:flex;justify-content:space-between;align-items:center}
-.kpi-label{font-size:13px;color:var(--muted);font-weight:500}
-.kpi-ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center}
-.kpi-val{font-size:28px;font-weight:700;letter-spacing:-.02em;line-height:1}
-.kpi-sub{font-size:12px;color:var(--muted)}
-.tone-blue .kpi-ic{background:var(--primary-50);color:var(--primary)}
-.tone-green .kpi-ic{background:var(--green-50);color:var(--green)}
-.tone-amber .kpi-ic{background:var(--amber-50);color:var(--amber)}
-.tone-slate .kpi-ic{background:var(--slate-50);color:var(--muted)}
-.tone-violet .kpi-ic{background:#f3f0ff;color:#7c3aed}
+  <!-- ============ MAIN ============ -->
+  <main class="main">
+    <header class="topbar">
+      <button class="icon-btn only-mobile" id="btnMenu" aria-label="Menu"><i data-ic="menu"></i></button>
+      <div class="topbar-title">
+        <h1 id="pageTitle">Dashboard</h1>
+        <p id="pageSub">Ringkasan kegiatan dan progres</p>
+      </div>
+      <div class="topbar-actions">
+        <div class="select-wrap" id="yearWrap">
+          <i data-ic="calendar" data-s="16"></i>
+          <select id="yearFilter" aria-label="Filter tahun"></select>
+        </div>
+        <button class="icon-btn" id="btnRefresh" title="Muat ulang data"><i data-ic="refresh"></i></button>
+        <button class="btn primary" id="btnNew"><i data-ic="plus" data-s="16"></i><span>Kegiatan Baru</span></button>
+      </div>
+    </header>
 
-.grid-main{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px}
-.grid-main>*,.grid-3>*,.explorer>*,.form-grid>*{min-width:0}
-.fp-row .top>span{min-width:0}
-html,body{overflow-x:hidden}
-.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-.chart-box{position:relative;height:280px}
-.seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:3px;gap:2px;flex-shrink:0}
-.seg button{border:0;background:transparent;height:30px;padding:0 12px;border-radius:7px;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
-.seg button:hover{color:var(--text)}
-.seg button.on{background:var(--surface);color:var(--primary);box-shadow:var(--shadow)}
-.tren-stats{display:flex;gap:22px;flex-wrap:wrap;margin:-4px 0 14px}
-.tren-stats div{display:flex;flex-direction:column;gap:1px}
-.tren-stats small{font-size:11.5px;color:var(--muted)}
-.tren-stats b{font-size:16px;font-weight:700}
-.tren-stats:empty{display:none}
-.chart-box.donut{display:flex;align-items:center;justify-content:center}
-.donut-center{position:absolute;top:42%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none}
-.donut-center b{display:block;font-size:24px;font-weight:700}
-.donut-center small{color:var(--muted);font-size:12px}
-.stack{display:flex;flex-direction:column;gap:4px}
+    <div class="content">
+      <!-- ============ DASHBOARD ============ -->
+      <section id="view-dashboard" class="view">
+        <div class="kpis" id="kpis"></div>
 
-.mini-item{display:flex;align-items:center;gap:12px;padding:10px;border-radius:10px;cursor:pointer;transition:background .15s;min-width:0}
-.mini-item:hover{background:var(--surface-2)}
-.mini-item .grow{flex:1;min-width:0}
-.mini-item .t{font-weight:550;font-weight:500;font-size:13.5px}
-.mini-item .s{font-size:12px;color:var(--muted)}
-.mini-ic{width:34px;height:34px;border-radius:9px;background:var(--surface-2);border:1px solid var(--border);display:grid;place-items:center;color:var(--muted);flex-shrink:0}
-.fp-row{padding:10px 4px}
-.fp-row .top{display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:6px}
-.fp-row .top b{font-weight:600}
-.empty-mini{padding:28px 10px;text-align:center;color:var(--muted-2);font-size:13px}
+        <div class="grid-main">
+          <div class="card">
+            <div class="card-head">
+              <div><h3 id="chartTrenTitle">Kegiatan Harian</h3><p class="muted" id="chartBulanSub">Jumlah kegiatan berdasarkan status</p></div>
+              <div class="seg" id="trenSeg" role="tablist" aria-label="Rentang grafik">
+                <button type="button" data-r="7" class="on">7 Hari</button>
+                <button type="button" data-r="30">30 Hari</button>
+                <button type="button" data-r="bulan">Per Bulan</button>
+              </div>
+            </div>
+            <div class="tren-stats" id="trenStats"></div>
+            <div class="chart-box"><canvas id="chartBulan"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div><h3>Komposisi Status</h3><p class="muted">Sebaran status kegiatan</p></div></div>
+            <div class="chart-box donut"><canvas id="chartStatus"></canvas>
+              <div class="donut-center"><b id="donutPct">0%</b><small>selesai</small></div>
+            </div>
+          </div>
+        </div>
 
-/* ---------- Progress & badge ---------- */
-.bar{height:7px;background:var(--slate-50);border-radius:99px;overflow:hidden;flex:1}
-.bar>span{display:block;height:100%;border-radius:99px;background:var(--primary);transition:width .4s}
-.bar.p-done>span{background:var(--green)}
-.bar.p-zero>span{background:var(--slate)}
-.badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 10px;border-radius:99px;white-space:nowrap}
-.badge::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
-.st-belum{background:var(--slate-50);color:#64748b}
-.st-jalan{background:var(--primary-50);color:var(--primary)}
-.st-selesai{background:var(--green-50);color:#059669}
-.tag{font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;background:var(--red-50);color:var(--red);white-space:nowrap}
+        <div class="grid-3">
+          <div class="card">
+            <div class="card-head"><div><h3>Progres per Folder</h3><p class="muted">Rata-rata progres tiap folder</p></div></div>
+            <div id="folderProgress" class="stack"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div><h3>Perlu Perhatian</h3><p class="muted">Belum selesai, progres terendah</p></div></div>
+            <div id="attention" class="stack"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div><h3>Aktivitas Terbaru</h3><p class="muted">Terakhir diperbarui</p></div></div>
+            <div id="recent" class="stack"></div>
+          </div>
+        </div>
+      </section>
 
-/* ---------- Kegiatan list ---------- */
-.toolbar{display:flex;gap:10px;padding:12px;margin-bottom:16px;flex-wrap:wrap}
-.toolbar select{width:auto;min-width:150px}
-.search{position:relative;flex:1;min-width:220px}
-.search .ic{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted-2)}
-.search input{padding-left:36px}
-.list-card{padding:0;overflow:hidden}
-.list-top{padding:14px 20px;border-bottom:1px solid var(--border);font-size:13px}
-.k-head,.k-row{display:grid;grid-template-columns:minmax(0,2.6fr) minmax(0,1.4fr) minmax(0,1.1fr) minmax(0,1.3fr) 120px;gap:18px;align-items:center;padding:0 20px}
-.k-head{height:40px;background:var(--surface-2);border-bottom:1px solid var(--border);font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
-.k-row{padding-top:14px;padding-bottom:14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s}
-.k-row:last-child{border-bottom:0}
-.k-row:hover{background:#fafbfd}
-.k-title{font-weight:600;font-size:14px}
-.k-sub{font-size:12.5px;color:var(--muted);margin-top:2px}
-.chip{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;padding:4px 10px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;max-width:100%}
-.chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.k-folder small,.k-meta small{display:block;font-size:12px;color:var(--muted);margin-top:4px}
-.k-meta{font-size:13px}
-.k-meta div,.k-meta small{display:flex;align-items:center;gap:6px}
-.k-prog{display:flex;align-items:center;gap:10px}
-.k-prog b{font-size:13px;width:38px;text-align:right;font-weight:600}
-.empty{padding:64px 20px;text-align:center}
-.empty-ic{width:56px;height:56px;border-radius:16px;background:var(--primary-50);color:var(--primary);display:grid;place-items:center;margin:0 auto 14px}
-.empty h4{font-size:15px;margin-bottom:4px}
-.empty p{color:var(--muted);font-size:13px;margin-bottom:16px}
+      <!-- ============ KEGIATAN ============ -->
+      <section id="view-kegiatan" class="view hidden">
+        <div class="toolbar card">
+          <div class="search">
+            <i data-ic="search" data-s="16"></i>
+            <input id="fSearch" type="search" placeholder="Cari kegiatan, isi, atau PIC…">
+          </div>
+          <select id="fBulan"></select>
+          <select id="fStatus"></select>
+          <select id="fFolder"></select>
+          <button class="btn ghost" id="btnReset">Reset</button>
+        </div>
 
-/* ---------- Folder explorer ---------- */
-.crumb-card{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 18px;margin-bottom:16px}
-.crumbs{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13.5px;color:var(--muted)}
-.crumbs b{color:var(--text);font-weight:600}
-.explorer{display:grid;grid-template-columns:220px 260px 1fr;gap:16px;align-items:start}
-.col{padding:0;overflow:hidden}
-.col-head{display:flex;justify-content:space-between;align-items:center;padding:12px 14px 12px 18px;border-bottom:1px solid var(--border);min-height:54px}
-.col-head h4{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
-.col-body{padding:8px;max-height:calc(100vh - 260px);overflow:auto}
-.ex-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;cursor:pointer;transition:background .12s;font-weight:500}
-.ex-item:hover{background:var(--surface-2)}
-.ex-item.active{background:var(--primary-50);color:var(--primary)}
-.ex-item .grow{flex:1;min-width:0}
-.ex-item small{color:var(--muted);font-weight:400;font-size:12px}
-.ex-item.active small{color:var(--primary)}
-.ex-item.ghosted{color:var(--muted-2)}
-.ex-item.ghosted .add{opacity:0;font-size:12px;font-weight:600;color:var(--primary)}
-.ex-item.ghosted:hover .add{opacity:1}
-.ex-ic{color:var(--amber)}
-.ex-item.active .ex-ic{color:var(--primary)}
-.ex-item.ghosted .ex-ic{color:var(--border-2)}
-.folder-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;padding:6px}
-.fcard{border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;transition:all .15s;background:var(--surface)}
-.fcard:hover{border-color:var(--primary-100);box-shadow:0 6px 16px -8px rgba(37,99,235,.25)}
-.fcard-top{display:flex;gap:12px;align-items:center;min-width:0}
-.fcard-ic{width:40px;height:40px;border-radius:10px;background:var(--amber-50);color:var(--amber);display:grid;place-items:center;flex-shrink:0}
-.fcard-name{font-weight:600;font-size:14px}
-.fcard-stats{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
-.fcard-actions{display:flex;gap:6px;flex-wrap:wrap}
-.fcard-top[data-open]{cursor:pointer;border-radius:10px;margin:-6px;padding:6px;transition:background .12s}
-.fcard-top[data-open]:hover{background:var(--surface-2)}
-.fcard-top[data-open]>.ic{color:var(--muted-2)}
-.sub-nav{display:flex;align-items:center;gap:10px;padding:4px 6px 10px}
-.icon-btn.sm{width:30px;height:30px;border-radius:8px}
-#exBack .ic{transform:rotate(180deg)}
-.sub-crumbs{display:flex;align-items:center;gap:5px;flex-wrap:wrap;font-size:13px;color:var(--muted);min-width:0}
-.sub-crumbs a{color:var(--primary);font-weight:500}
-.sub-crumbs a:hover{text-decoration:underline}
-.sub-crumbs b{color:var(--text);font-weight:600}
-.cur-folder{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin:0 6px 12px;padding:14px 16px;border-radius:12px;background:var(--primary-50);border:1px solid var(--primary-100)}
-.cur-folder .grow{flex:1;min-width:200px}
-.cur-folder .fcard-actions{align-self:center}
+        <div class="card list-card">
+          <div class="list-top">
+            <span id="kSummary" class="muted">—</span>
+          </div>
+          <div class="k-head">
+            <span>Kegiatan</span><span>Folder</span><span>Tanggal &amp; PIC</span><span>Progres</span><span>Status</span>
+          </div>
+          <div id="kList"></div>
+        </div>
+      </section>
 
-/* ---------- Modal ---------- */
-.modal{position:fixed;inset:0;background:rgba(15,23,42,.45);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;padding:20px;z-index:60}
-.modal.top{z-index:80}
-.modal.open{display:flex;animation:fade .18s}
-.modal-card{background:var(--surface);border-radius:16px;box-shadow:var(--shadow-lg);width:100%;max-width:520px;max-height:calc(100vh - 40px);display:flex;flex-direction:column}
-.modal-card.lg{max-width:720px}
-.modal-card.sm{max-width:420px}
-.modal-head{display:flex;justify-content:space-between;gap:16px;padding:20px 24px 16px;border-bottom:1px solid var(--border)}
-.modal-head h3{font-size:17px;font-weight:700}
-.modal-head p{font-size:13px;margin-top:2px}
-.modal-body{padding:20px 24px;overflow:auto}
-.modal-foot{display:flex;justify-content:flex-end;gap:10px;padding:14px 24px;border-top:1px solid var(--border);background:var(--surface-2);border-radius:0 0 16px 16px}
-.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.fld{display:flex;flex-direction:column;gap:7px}
-.fld>span{font-size:13px;font-weight:600;color:var(--text-2)}
-.fld em{color:var(--red);font-style:normal}
-.span-2{grid-column:span 2}
-.dest-row{display:grid;grid-template-columns:100px 140px 1fr auto auto;gap:8px}
-.hint{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
-.locked{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:9px;background:var(--surface-2);border:1px dashed var(--border-2);font-size:13px;color:var(--text-2)}
-.range-wrap{display:flex;align-items:center;gap:14px}
-input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:7px;border-radius:99px;background:linear-gradient(to right,var(--primary) var(--v,0%),var(--slate-50) var(--v,0%));outline:none;border:0;padding:0}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:#fff;border:2px solid var(--primary);box-shadow:0 2px 6px rgba(15,23,42,.2);cursor:pointer}
-input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#fff;border:2px solid var(--primary);cursor:pointer}
-.prog-pill{min-width:56px;text-align:center;font-weight:700;font-size:13px;padding:5px 10px;border-radius:8px;background:var(--primary-50);color:var(--primary)}
-.quick{display:flex;gap:6px;flex-wrap:wrap}
-.quick button{height:28px;padding:0 11px;border-radius:7px;border:1px solid var(--border);background:var(--surface);font-size:12px;font-weight:600;color:var(--muted);cursor:pointer}
-.quick button:hover,.quick button.on{border-color:var(--primary);color:var(--primary);background:var(--primary-50)}
-.dropzone{border:1.5px dashed var(--border-2);border-radius:12px;padding:22px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;color:var(--muted);cursor:pointer;transition:all .15s;background:var(--surface-2);font-size:13px}
-.dropzone b{color:var(--text-2)}
-.dropzone u{color:var(--primary);text-decoration:none;font-weight:600}
-.dropzone:hover,.dropzone.over{border-color:var(--primary);background:var(--primary-50);color:var(--primary)}
-.pending{display:flex;flex-direction:column;gap:6px;margin-top:4px}
-.pf{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:9px;font-size:13px}
-.pf .grow{flex:1;min-width:0}
-.pf small{color:var(--muted)}
-.pf button{border:0;background:none;color:var(--muted);cursor:pointer;display:grid;place-items:center;padding:2px}
-.pf button:hover{color:var(--red)}
-.confirm-body{text-align:center;padding-top:28px}
-.confirm-ic{width:52px;height:52px;border-radius:50%;background:var(--red-50);color:var(--red);display:grid;place-items:center;margin:0 auto 14px}
-.confirm-body h3{font-size:17px;margin-bottom:6px}
-.c-list{list-style:none;text-align:left;margin:14px 0 0;padding:12px 14px;border-radius:10px;background:var(--red-50);border:1px solid #fecaca;font-size:13px;color:var(--text-2);display:flex;flex-direction:column;gap:6px}
-.c-list li{display:flex;gap:8px;align-items:flex-start}
-.c-list li .ic{color:var(--red);margin-top:2px}
-.c-type{text-align:left;margin-top:14px}
-.c-type span b{color:var(--red)}
-/* Tombol hapus pada item explorer */
-.ex-del{width:26px;height:26px;border-radius:7px;border:0;background:transparent;color:var(--muted-2);display:grid;place-items:center;cursor:pointer;opacity:0;transition:all .15s;flex-shrink:0}
-.ex-item:hover .ex-del{opacity:1}
-.ex-del:hover{background:var(--red-50);color:var(--red)}
-.btn.icon-only{width:30px;padding:0}
-.btn.ghost.del:hover{color:var(--red);border-color:#fecaca;background:var(--red-50)}
-@media (hover:none){.ex-del{opacity:1}}
+      <!-- ============ FOLDER ============ -->
+      <section id="view-folder" class="view hidden">
+        <div class="card crumb-card">
+          <div class="crumbs" id="crumbs"></div>
+          <a class="btn ghost sm" id="lnkCurrent" target="_blank" rel="noopener"><i data-ic="external" data-s="14"></i>Buka di Drive</a>
+        </div>
+        <div class="explorer">
+          <div class="card col">
+            <div class="col-head"><h4>Tahun</h4><button class="btn ghost sm" id="btnAddYear"><i data-ic="plus" data-s="14"></i>Tahun</button></div>
+            <div id="colYear" class="col-body"></div>
+          </div>
+          <div class="card col">
+            <div class="col-head"><h4>Bulan</h4></div>
+            <div id="colMonth" class="col-body"></div>
+          </div>
+          <div class="card col col-wide">
+            <div class="col-head"><h4 id="colFolderTitle">Folder Kegiatan</h4><button class="btn primary sm" id="btnAddFolder"><i data-ic="plus" data-s="14"></i><span id="btnAddFolderLabel">Folder Baru</span></button></div>
+            <div id="colFolder" class="col-body"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
 
-/* ---------- Drawer ---------- */
-.drawer-wrap{position:fixed;inset:0;z-index:50;pointer-events:none}
-.drawer-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.35);opacity:0;transition:opacity .25s}
-.drawer{position:absolute;top:0;right:0;bottom:0;width:min(620px,100%);background:var(--surface);box-shadow:var(--shadow-lg);transform:translateX(100%);transition:transform .28s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column}
-.drawer-wrap.open{pointer-events:auto}
-.drawer-wrap.open .drawer-backdrop{opacity:1}
-.drawer-wrap.open .drawer{transform:none}
-.dr-head{display:flex;gap:16px;justify-content:space-between;padding:22px 26px 18px;border-bottom:1px solid var(--border)}
-.dr-crumb{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);flex-wrap:wrap}
-.dr-head h2{font-size:20px;font-weight:700;margin:6px 0 10px;line-height:1.3}
-.dr-tags{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--text-2)}
-.dr-tags span{display:inline-flex;align-items:center;gap:6px}
-.dr-body{flex:1;overflow:auto;padding:8px 26px 24px}
-.dr-sec{padding:18px 0;border-bottom:1px solid var(--border)}
-.dr-sec:last-child{border-bottom:0}
-.dr-sec h4{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px}
-.dr-sec h4 .cnt{background:var(--slate-50);color:var(--muted);border-radius:99px;padding:0 8px;font-size:11px}
-.prog-box{display:flex;gap:22px;align-items:center;background:var(--surface-2);border:1px solid var(--border);border-radius:14px;padding:18px}
-.ring{position:relative;width:112px;height:112px;flex-shrink:0}
-.ring svg{transform:rotate(-90deg)}
-.ring circle{transition:stroke-dashoffset .35s,stroke .35s}
-.ring-val{position:absolute;inset:0;display:grid;place-items:center;text-align:center}
-.ring-val b{font-size:24px;font-weight:700;display:block;line-height:1}
-.ring-val small{font-size:11px;color:var(--muted)}
-.prog-ctrl{flex:1;display:flex;flex-direction:column;gap:10px;min-width:0}
-.prog-ctrl .row{display:flex;gap:8px}
-.isi{white-space:pre-wrap;font-size:14px;line-height:1.7;color:var(--text-2);background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
-.files{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-top:12px}
-.fi{position:relative;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface);transition:box-shadow .15s}
-.fi:hover{box-shadow:0 6px 14px -6px rgba(15,23,42,.2)}
-.fi a{display:block}
-.fi-thumb{height:92px;background:var(--surface-2);display:grid;place-items:center;color:var(--muted);overflow:hidden}
-.fi-thumb img{width:100%;height:100%;object-fit:cover}
-.fi-ext{font-size:11px;font-weight:700;color:var(--primary);background:var(--primary-50);padding:3px 8px;border-radius:6px;margin-top:6px}
-.fi-name{font-size:12px;padding:8px 9px 2px;font-weight:500}
-.fi-size{font-size:11px;color:var(--muted);padding:0 9px 8px}
-.fi-del{position:absolute;top:6px;right:6px;width:26px;height:26px;border-radius:7px;border:0;background:rgba(255,255,255,.95);color:var(--red);display:grid;place-items:center;cursor:pointer;opacity:0;transition:opacity .15s;box-shadow:var(--shadow)}
-.fi:hover .fi-del{opacity:1}
-.upl-status{font-size:12.5px;color:var(--primary);margin-top:8px;display:flex;align-items:center;gap:8px}
-.timeline{display:flex;flex-direction:column}
-.tl{display:flex;gap:14px;position:relative;padding-bottom:16px}
-.tl:last-child{padding-bottom:0}
-.tl::before{content:'';position:absolute;left:15px;top:32px;bottom:0;width:2px;background:var(--border)}
-.tl:last-child::before{display:none}
-.tl-dot{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:10.5px;font-weight:700;flex-shrink:0;border:2px solid #fff;box-shadow:0 0 0 1px var(--border)}
-.tl-body{flex:1;min-width:0;padding-top:4px}
-.tl-body .n{font-size:13.5px;font-weight:500}
-.tl-body .m{font-size:12px;color:var(--muted)}
-.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px}
-.meta-grid small{display:block;color:var(--muted);font-size:12px}
-.dr-foot{display:flex;gap:8px;padding:14px 26px;border-top:1px solid var(--border);background:var(--surface-2);flex-wrap:wrap}
-.dr-foot .sp{flex:1}
-.skeleton{background:linear-gradient(90deg,#eef2f7 25%,#f6f8fb 50%,#eef2f7 75%);background-size:200% 100%;animation:shimmer 1.2s infinite;border-radius:8px}
-@keyframes shimmer{to{background-position:-200% 0}}
+<!-- ============ NAVIGASI BAWAH (HP) ============ -->
+<nav class="bottom-nav" id="bottomNav">
+  <a class="bn-item active" data-view="dashboard"><i data-ic="dashboard" data-s="21"></i><span>Dashboard</span></a>
+  <a class="bn-item" data-view="kegiatan"><i data-ic="list" data-s="21"></i><span>Kegiatan</span></a>
+  <button type="button" class="bn-fab" id="bnFab" aria-label="Buat laporan"><span class="fab"><i data-ic="plus" data-s="26"></i></span><span>Lapor</span></button>
+  <a class="bn-item" data-view="folder"><i data-ic="folder" data-s="21"></i><span>Folder</span></a>
+  <a class="bn-item" id="bnMore"><i data-ic="menu" data-s="21"></i><span>Lainnya</span></a>
+</nav>
 
-/* ---------- Toast & loader ---------- */
-.toasts{position:fixed;bottom:22px;right:22px;display:flex;flex-direction:column;gap:10px;z-index:100}
-.toast{display:flex;align-items:center;gap:10px;background:#0f172a;color:#fff;padding:12px 16px;border-radius:11px;box-shadow:var(--shadow-lg);font-size:13.5px;max-width:380px;animation:slideUp .25s}
-.toast.ok .ic{color:#34d399}
-.toast.err{background:#7f1d1d}
-@keyframes slideUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-.loader{position:fixed;inset:0;background:var(--bg);display:grid;place-items:center;z-index:200;transition:opacity .3s}
-.loader.hide{opacity:0;pointer-events:none}
-.loader-box{text-align:center;color:var(--muted);max-width:420px;padding:20px}
-.spinner{width:38px;height:38px;border:3px solid var(--primary-100);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 14px}
-.spinner.sm{width:14px;height:14px;border-width:2px;margin:0;display:inline-block}
-@keyframes spin{to{transform:rotate(360deg)}}
+<!-- ============ MODAL: LAPOR CEPAT ============ -->
+<div class="modal top" id="mQuick">
+  <div class="modal-card sm">
+    <div class="modal-head">
+      <div><h3>Lapor Cepat</h3><p class="muted">Pilih yang ingin dilakukan</p></div>
+      <button class="icon-btn" data-close aria-label="Tutup"><i data-ic="x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="sheet-opts">
+        <button type="button" class="sheet-opt hero" id="qPhoto"><span class="so-ic"><i data-ic="camera" data-s="22"></i></span><span><b>Foto &amp; Buat Laporan</b><small>Ambil foto dulu, lalu isi laporan kegiatan</small></span></button>
+        <button type="button" class="sheet-opt" id="qNew"><span class="so-ic"><i data-ic="file" data-s="22"></i></span><span><b>Laporan Kegiatan Baru</b><small>Isi kegiatan, isi kegiatan &amp; lampiran</small></span></button>
+      </div>
+      <div class="sheet-sub">Update progres / tambah dokumentasi</div>
+      <div class="pick-list" id="qPick"></div>
+    </div>
+  </div>
+</div>
 
-/* ---------- Editor WYSIWYG & tampilan rich text ---------- */
-.rte{border:1px solid var(--border);border-radius:10px;background:var(--surface);overflow:hidden;transition:border .15s,box-shadow .15s}
-.rte:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
-.rte-bar{display:flex;align-items:center;gap:2px;padding:6px;border-bottom:1px solid var(--border);background:var(--surface-2);overflow-x:auto;scrollbar-width:none;position:sticky;top:0;z-index:1}
-.rte-bar::-webkit-scrollbar{display:none}
-.rte-bar button{flex-shrink:0;min-width:32px;height:32px;padding:0 7px;border:0;border-radius:7px;background:transparent;color:var(--text-2);cursor:pointer;font-size:13.5px;font-weight:600;display:grid;place-items:center}
-.rte-bar button:hover{background:var(--border)}
-.rte-bar button.on{background:var(--primary-100);color:var(--primary)}
-.rte-bar .sep{width:1px;height:20px;background:var(--border-2);margin:0 4px;flex-shrink:0}
-.rte-area{min-height:180px;max-height:420px;overflow:auto;padding:12px 14px;outline:none;font-size:14px;line-height:1.65}
-.rte-area:empty::before{content:attr(data-placeholder);color:var(--muted-2);pointer-events:none}
-.rich p{margin:0 0 .6em}.rich p:last-child{margin-bottom:0}
-.rich h2{font-size:1.25em;font-weight:700;margin:.8em 0 .4em;color:var(--text)}
-.rich h3{font-size:1.08em;font-weight:700;margin:.7em 0 .35em;color:var(--text)}
-.rich h2:first-child,.rich h3:first-child{margin-top:0}
-.rich ul,.rich ol{margin:0 0 .6em;padding-left:1.4em}.rich li{margin-bottom:.2em}
-.rich blockquote{margin:.5em 0;padding:.5em .9em;border-left:3px solid #93c5fd;background:var(--surface-2);color:var(--text-2);border-radius:0 8px 8px 0}
-.rich a{color:var(--primary);text-decoration:underline}
-.isi.rich{white-space:normal}
-.pdf-card{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
-.pdf-ic{width:42px;height:42px;border-radius:10px;background:#fef2f2;color:#dc2626;display:grid;place-items:center;font-size:10px;font-weight:800;flex-shrink:0;letter-spacing:.5px}
-.pdf-card .grow{flex:1;min-width:0}
-.pdf-card .t{font-weight:600;font-size:13.5px}
-.pdf-card .s{font-size:12px;color:var(--muted)}
-.pdf-card .acts{display:flex;gap:6px;flex-shrink:0}
+<!-- ============ MODAL: FORM KEGIATAN ============ -->
+<div class="modal" id="mKegiatan">
+  <div class="modal-card lg">
+    <div class="modal-head">
+      <div>
+        <h3 id="mkTitle">Kegiatan Baru</h3>
+        <p class="muted" id="mkSub">Isi detail kegiatan. Ringkasan & dokumentasi akan tersimpan ke folder Drive.</p>
+      </div>
+      <button class="icon-btn" data-close aria-label="Tutup"><i data-ic="x"></i></button>
+    </div>
+    <form id="fKegiatan" class="modal-body" autocomplete="off">
+      <input type="hidden" id="kId">
+      <div class="form-grid">
+        <label class="fld span-2">
+          <span>Nama Kegiatan <em>*</em></span>
+          <input id="kNama" maxlength="150" placeholder="Contoh: Rapat Koordinasi Bulanan" required>
+        </label>
+        <label class="fld">
+          <span>Tanggal Kegiatan</span>
+          <input id="kTanggal" type="date">
+        </label>
+        <label class="fld">
+          <span>PIC / Penanggung Jawab</span>
+          <input id="kPic" maxlength="80" placeholder="Nama penanggung jawab">
+        </label>
 
-/* ---------- Upload: kamera / dokumentasi / bukti dukung ---------- */
-.upload-zone{border:1.5px dashed var(--border-2);border-radius:14px;padding:12px;background:var(--surface-2);transition:all .15s}
-.upload-zone.over{border-color:var(--primary);background:var(--primary-50)}
-.up-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.up-btn{display:flex;flex-direction:column;align-items:center;gap:4px;padding:14px 10px;border:1px solid var(--border);border-radius:12px;background:var(--surface);cursor:pointer;text-align:center;transition:all .15s;color:var(--text-2)}
-.up-btn .ic{color:var(--primary);margin-bottom:2px}
-.up-btn b{font-size:13px}
-.up-btn small{font-size:11.5px;color:var(--muted);line-height:1.35}
-.up-btn:hover{border-color:var(--primary);box-shadow:0 6px 16px -10px rgba(37,99,235,.5);transform:translateY(-1px)}
-.up-btn.cam{background:linear-gradient(135deg,#2563eb,#4f46e5);border-color:transparent;color:#fff}
-.up-btn.cam .ic,.up-btn.cam small{color:#e0e7ff}
-.up-drop{text-align:center;font-size:12px;color:var(--muted-2);padding-top:10px}
-.pf .kat{border:0;font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px;cursor:pointer;white-space:nowrap}
-.kat-dok{background:var(--primary-50)!important;color:var(--primary)!important}
-.kat-bukti{background:#fff7ed!important;color:#c2410c!important}
-.pf-thumb{width:34px;height:34px;border-radius:7px;object-fit:cover;flex-shrink:0;background:var(--surface-2)}
-.up-progress{margin-top:10px;display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--primary)}
-.up-progress .bar{flex:none;height:6px}
+        <div class="fld span-2" id="kDest">
+          <span>Folder Tujuan di Drive <em>*</em></span>
+          <div class="dest-row">
+            <select id="kTahun" aria-label="Tahun"></select>
+            <select id="kBulan" aria-label="Bulan"></select>
+            <select id="kFolder" aria-label="Folder"></select>
+            <button type="button" class="btn ghost" id="kNewFolder" title="Folder baru di bulan ini"><i data-ic="plus" data-s="14"></i>Folder</button>
+            <button type="button" class="btn ghost" id="kNewSub" title="Sub-folder di dalam folder terpilih" disabled><i data-ic="plus" data-s="14"></i>Sub</button>
+          </div>
+          <small class="hint" id="kPath"></small>
+          <small class="last-hint hidden" id="kLastHint"><i data-ic="check" data-s="13"></i>Memakai folder &amp; PIC dari laporan terakhir</small>
+        </div>
+        <div class="fld span-2 hidden" id="kDestLocked">
+          <span>Folder Tujuan</span>
+          <div class="locked" id="kLockedPath"></div>
+        </div>
 
-/* Bukti dukung (list) */
-.bk-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
-.bk{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:11px;background:var(--surface);transition:box-shadow .15s}
-.bk:hover{box-shadow:0 6px 14px -8px rgba(15,23,42,.2)}
-.bk-ic{width:38px;height:38px;border-radius:9px;background:#fff7ed;color:#c2410c;display:grid;place-items:center;font-size:10px;font-weight:700;flex-shrink:0}
-.bk .grow{flex:1;min-width:0}
-.bk .n{font-size:13px;font-weight:500}
-.bk .m{font-size:11.5px;color:var(--muted)}
-.bk .acts{display:flex;gap:4px}
-.bk .acts a,.bk .acts button{width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--surface);display:grid;place-items:center;cursor:pointer;color:var(--muted)}
-.bk .acts a:hover{color:var(--primary);border-color:var(--primary)}
-.bk .acts button:hover{color:var(--red);border-color:#fecaca}
-.foto-ph{display:flex;flex-direction:column;align-items:center;gap:4px;color:#b91c1c;font-size:11.5px;font-weight:700}
-.bk-foto{background:#fef2f2;color:#b91c1c}
-.bk-img{padding:0;overflow:hidden;background:var(--surface-2)}
-.bk-img img{width:100%;height:100%;object-fit:cover;display:block}
-.in-pdf{display:inline-block;font-size:10.5px;font-weight:700;color:#b91c1c;background:#fef2f2;padding:0 6px;border-radius:5px;margin-right:4px}
-.fi-thumb{position:relative}
-.fi-pdf{position:absolute;left:6px;bottom:6px;font-size:10px;font-weight:700;color:#fff;background:rgba(185,28,28,.88);padding:1px 6px;border-radius:5px}
-.pdf-note{display:flex;gap:8px;align-items:flex-start;margin-top:10px;padding:9px 12px;border-radius:10px;background:#fef2f2;border:1px solid #fecaca;font-size:12.5px;color:#7f1d1d;line-height:1.45}
-.pdf-note .ic{flex-shrink:0;margin-top:2px;color:#dc2626}
-.sub-h{display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--text-2);margin-top:16px}
-.sub-h small{font-weight:500;color:var(--muted)}
+        <div class="fld span-2">
+          <span>Isi Kegiatan <small class="muted">(tampil di laporan PDF)</small></span>
+          <div class="rte" id="kRte">
+            <div class="rte-bar" id="kRteBar" role="toolbar" aria-label="Format teks">
+              <button type="button" data-cmd="bold" title="Tebal (Ctrl+B)"><b>B</b></button>
+              <button type="button" data-cmd="italic" title="Miring (Ctrl+I)"><i style="font-family:Georgia,serif">I</i></button>
+              <button type="button" data-cmd="underline" title="Garis bawah (Ctrl+U)"><u>U</u></button>
+              <button type="button" data-cmd="strikeThrough" title="Coret"><s>S</s></button>
+              <span class="sep"></span>
+              <button type="button" data-block="h2" title="Judul">H1</button>
+              <button type="button" data-block="h3" title="Sub-judul">H2</button>
+              <button type="button" data-block="p" title="Paragraf biasa">¶</button>
+              <span class="sep"></span>
+              <button type="button" data-cmd="insertUnorderedList" title="Daftar berbutir"><i data-ic="ul" data-s="17"></i></button>
+              <button type="button" data-cmd="insertOrderedList" title="Daftar bernomor"><i data-ic="ol" data-s="17"></i></button>
+              <button type="button" data-block="blockquote" title="Kutipan / catatan"><i data-ic="quote" data-s="17"></i></button>
+              <span class="sep"></span>
+              <button type="button" data-cmd="justifyLeft" title="Rata kiri"><i data-ic="alignL" data-s="17"></i></button>
+              <button type="button" data-cmd="justifyCenter" title="Rata tengah"><i data-ic="alignC" data-s="17"></i></button>
+              <button type="button" data-cmd="justifyRight" title="Rata kanan"><i data-ic="alignR" data-s="17"></i></button>
+              <button type="button" data-cmd="justifyFull" title="Rata kiri-kanan"><i data-ic="alignJ" data-s="17"></i></button>
+              <span class="sep"></span>
+              <button type="button" data-cmd="undo" title="Urungkan (Ctrl+Z)"><i data-ic="undo" data-s="17"></i></button>
+              <button type="button" data-cmd="redo" title="Ulangi (Ctrl+Y)"><i data-ic="redo" data-s="17"></i></button>
+              <button type="button" data-cmd="removeFormat" title="Hapus format"><i data-ic="eraser" data-s="17"></i></button>
+            </div>
+            <div class="rte-area rich" id="kIsi" contenteditable="true" spellcheck="true"
+                 data-placeholder="Tuliskan uraian, hasil, notulen, atau catatan kegiatan…"></div>
+          </div>
+        </div>
 
-/* Kamera */
-.cam-card{max-width:760px;overflow:hidden}
-.cam-stage{position:relative;background:#0b1120;aspect-ratio:4/3;max-height:58vh;width:100%;display:grid;place-items:center;overflow:hidden}
-.cam-stage video{width:100%;height:100%;object-fit:contain;background:#0b1120}
-.cam-stage video.mirror{transform:scaleX(-1)}
-.cam-flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .25s}
-.cam-flash.on{opacity:.85;transition:none}
-.cam-msg{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:24px;text-align:center;color:#e2e8f0;background:#0b1120}
-.cam-msg p{font-size:13px;color:#94a3b8;max-width:380px;margin-bottom:8px}
-.cam-stamp-preview{position:absolute;left:0;right:0;bottom:0;padding:10px 14px;background:linear-gradient(transparent,rgba(0,0,0,.65));color:#fff;font-size:12px;line-height:1.4;pointer-events:none}
-.cam-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;border-top:1px solid var(--border);flex-wrap:wrap}
-.cam-ctrl{display:flex;align-items:center;gap:14px}
-.shutter{width:62px;height:62px;border-radius:50%;border:4px solid var(--primary-100);background:#fff;display:grid;place-items:center;cursor:pointer;padding:0;transition:transform .1s}
-.shutter span{width:46px;height:46px;border-radius:50%;background:var(--primary);transition:background .15s}
-.shutter:hover span{background:var(--primary-600)}
-.shutter:active{transform:scale(.92)}
-.shutter:disabled{opacity:.4;cursor:not-allowed}
-.switch{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--text-2);cursor:pointer;user-select:none}
-.switch input{display:none}
-.switch span{width:36px;height:20px;border-radius:99px;background:var(--border-2);position:relative;transition:background .15s;flex-shrink:0}
-.switch span::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
-.switch input:checked+span{background:var(--primary)}
-.switch input:checked+span::after{left:18px}
-.cam-strip{display:flex;gap:8px;padding:0 18px 14px;overflow-x:auto;min-height:0}
-.cam-strip:empty{display:none}
-.cam-th{position:relative;flex-shrink:0}
-.cam-th img{width:84px;height:63px;object-fit:cover;border-radius:8px;border:1px solid var(--border);display:block}
-.cam-th button{position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;border:0;background:var(--red);color:#fff;display:grid;place-items:center;cursor:pointer;box-shadow:var(--shadow)}
+        <div class="fld span-2">
+          <span>Progres Kegiatan</span>
+          <div class="range-wrap">
+            <input type="range" id="kProg" min="0" max="100" step="5" value="0">
+            <output id="kProgOut" class="prog-pill">0%</output>
+          </div>
+          <div class="quick" id="kQuick"></div>
+        </div>
 
-/* ---------- Responsive ---------- */
-@media (max-width:1280px){.kpis{grid-template-columns:repeat(3,1fr)}.grid-3{grid-template-columns:1fr 1fr}.grid-3>.card:last-child{grid-column:span 2}}
-@media (max-width:1100px){.explorer{grid-template-columns:1fr 1fr}.col-wide{grid-column:span 2}}
-/* ---------- Navigasi bawah (HP/tablet) ---------- */
-.bottom-nav{display:none}
-.sheet-opt{display:flex;align-items:center;gap:14px;width:100%;padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--surface);cursor:pointer;text-align:left;transition:all .15s}
-.sheet-opt:hover,.sheet-opt:active{border-color:var(--primary);background:var(--primary-50)}
-.sheet-opt .so-ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;flex-shrink:0;background:var(--primary-50);color:var(--primary)}
-.sheet-opt.hero .so-ic{background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff}
-.sheet-opt b{display:block;font-size:14.5px}
-.sheet-opt small{color:var(--muted);font-size:12.5px}
-.sheet-opts{display:flex;flex-direction:column;gap:10px}
-.sheet-sub{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:18px 2px 8px}
-.pick-list{display:flex;flex-direction:column;gap:6px}
-.pick{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;cursor:pointer;background:var(--surface)}
-.pick:active{background:var(--surface-2)}
-.pick .grow{flex:1;min-width:0}
-.pick .t{font-weight:600;font-size:13.5px}
-.pick .s{font-size:12px;color:var(--muted)}
-.pick b{font-size:13px}
-.last-hint{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--green);background:var(--green-50);padding:6px 10px;border-radius:8px}
+        <div class="fld span-2" id="kUploadWrap">
+          <span>Dokumentasi &amp; Bukti Dukung <small class="muted">(foto langsung masuk ke laporan PDF, tanpa disimpan di Drive)</small></span>
+          <div class="upload-zone" id="kZone">
+            <div class="up-actions">
+              <button type="button" class="up-btn cam" id="kCam"><i data-ic="camera" data-s="22"></i><b>Ambil Foto</b><small>Kamera langsung</small></button>
+              <button type="button" class="up-btn" id="kDoc"><i data-ic="image" data-s="22"></i><b>Upload Dokumentasi</b><small>Foto / video kegiatan</small></button>
+              <button type="button" class="up-btn" id="kBukti"><i data-ic="paperclip" data-s="22"></i><b>Upload Bukti Dukung</b><small>Surat, daftar hadir, notulen, PDF</small></button>
+            </div>
+            <div class="up-drop">atau tarik &amp; lepas file ke sini</div>
+          </div>
+          <div id="kFileList" class="pending"></div>
+        </div>
+      </div>
+    </form>
+    <div class="modal-foot">
+      <button class="btn ghost" data-close type="button">Batal</button>
+      <button class="btn primary" id="kSubmit" form="fKegiatan" type="submit">Simpan Kegiatan</button>
+    </div>
+  </div>
+</div>
 
-/* ---------- Responsive ---------- */
-@media (max-width:1280px){.kpis{grid-template-columns:repeat(3,1fr)}.grid-3{grid-template-columns:1fr 1fr}.grid-3>.card:last-child{grid-column:span 2}}
-@media (max-width:1100px){.explorer{grid-template-columns:1fr 1fr}.col-wide{grid-column:span 2}}
+<!-- ============ MODAL: PROMPT ============ -->
+<div class="modal top" id="mPrompt">
+  <div class="modal-card sm">
+    <div class="modal-head">
+      <div><h3 id="pTitle">Judul</h3><p class="muted" id="pHint"></p></div>
+      <button class="icon-btn" data-close aria-label="Tutup"><i data-ic="x"></i></button>
+    </div>
+    <form id="fPrompt" class="modal-body">
+      <label class="fld"><span id="pLabel">Nama</span><input id="pInput" required></label>
+    </form>
+    <div class="modal-foot">
+      <button class="btn ghost" data-close type="button">Batal</button>
+      <button class="btn primary" id="pSubmit" form="fPrompt" type="submit">Simpan</button>
+    </div>
+  </div>
+</div>
 
-@media (max-width:960px){
-  :root{--bn-h:64px;--safe-b:env(safe-area-inset-bottom,0px)}
-  .sidebar{transform:translateX(-100%);z-index:70}
-  .sidebar.open{transform:none;box-shadow:var(--shadow-lg)}
-  .sidebar-backdrop.show{display:block;position:fixed;inset:0;background:rgba(15,23,42,.35);z-index:65}
-  .main{margin-left:0}
-  .topbar{padding:10px 16px;gap:10px}
-  .topbar-title h1{font-size:18px}
-  #btnNew,#btnMenu{display:none}
-  .content{padding:14px 14px calc(var(--bn-h) + var(--safe-b) + 24px)}
-  .grid-main,.grid-3{grid-template-columns:1fr}
-  .grid-3>.card:last-child{grid-column:auto}
-  .chart-box{height:230px}
-  .card{padding:16px}
+<!-- ============ MODAL: KONFIRMASI ============ -->
+<div class="modal top" id="mConfirm">
+  <div class="modal-card sm">
+    <div class="modal-body confirm-body">
+      <div class="confirm-ic"><i data-ic="alert" data-s="22"></i></div>
+      <h3 id="cTitle">Yakin?</h3>
+      <p class="muted" id="cText"></p>
+      <ul class="c-list hidden" id="cList"></ul>
+      <label class="fld c-type hidden" id="cTypeWrap">
+        <span id="cTypeLabel">Ketik nama folder untuk konfirmasi</span>
+        <input id="cType" autocomplete="off">
+      </label>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" data-close type="button">Batal</button>
+      <button class="btn danger" id="cOk" type="button">Hapus</button>
+    </div>
+  </div>
+</div>
 
-  /* Navigasi bawah */
-  .bottom-nav{display:grid;grid-template-columns:repeat(5,1fr);align-items:end;position:fixed;left:0;right:0;bottom:0;z-index:45;
-    height:calc(var(--bn-h) + var(--safe-b));padding:0 6px var(--safe-b);background:rgba(255,255,255,.96);backdrop-filter:blur(12px);border-top:1px solid var(--border)}
-  .bn-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:var(--bn-h);font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;-webkit-tap-highlight-color:transparent}
-  .bn-item.active{color:var(--primary)}
-  .bn-fab{display:flex;flex-direction:column;align-items:center;gap:3px;height:var(--bn-h);justify-content:flex-end;padding-bottom:8px;border:0;background:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
-  .bn-fab .fab{width:56px;height:56px;border-radius:18px;background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;display:grid;place-items:center;
-    box-shadow:0 10px 22px -8px rgba(37,99,235,.7);transform:translateY(-14px);transition:transform .15s}
-  .bn-fab:active .fab{transform:translateY(-14px) scale(.94)}
-  .bn-fab span{font-size:11px;font-weight:700;color:var(--primary);margin-top:-14px}
-  .toasts{left:14px;right:14px;bottom:calc(var(--bn-h) + var(--safe-b) + 12px)}
-  .toast{max-width:none}
+<!-- ============ INPUT FILE TERSEMBUNYI ============ -->
+<input type="file" id="inDoc" multiple accept="image/*,video/*" hidden>
+<input type="file" id="inBukti" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,image/*" hidden>
+<input type="file" id="inNativeCam" accept="image/*" capture="environment" hidden>
 
-  /* Daftar kegiatan: kartu ramah jempol */
-  .toolbar{padding:10px;gap:8px;flex-wrap:wrap}
-  .toolbar .search{flex:0 0 100%;min-width:0}
-  .toolbar select{flex:1 1 40%;min-width:0}
-  .toolbar #fFolder{flex:1 1 60%}
-  .k-head{display:none}
-  .k-row{grid-template-columns:1fr auto;grid-template-areas:"main badge" "folder folder" "meta meta" "prog prog";gap:8px 12px;padding:14px 16px}
-  .k-row .k-main{grid-area:main}
-  .k-row>div:last-child{grid-area:badge;align-self:start}
-  .k-row .k-folder{grid-area:folder;display:flex;align-items:center;gap:8px;min-width:0}
-  .k-row .k-folder small{margin:0;flex-shrink:0}
-  .k-row .k-meta{grid-area:meta;display:flex;gap:14px;font-size:12.5px;color:var(--muted)}
-  .k-row .k-meta small{margin:0}
-  .k-row .k-prog{grid-area:prog}
-  .k-sub{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+<!-- ============ MODAL: KAMERA ============ -->
+<div class="modal top" id="mCamera">
+  <div class="modal-card cam-card">
+    <div class="modal-head">
+      <div><h3>Ambil Foto Dokumentasi</h3><p class="muted" id="camSub">Foto langsung tersimpan sebagai dokumentasi kegiatan.</p></div>
+      <button class="icon-btn" id="camClose" aria-label="Tutup"><i data-ic="x"></i></button>
+    </div>
+    <div class="cam-stage" id="camStage">
+      <video id="camVideo" autoplay playsinline muted></video>
+      <div class="cam-flash" id="camFlash"></div>
+      <div class="cam-msg hidden" id="camMsg">
+        <div class="confirm-ic" style="background:#eff4ff;color:#2563eb"><i data-ic="camera" data-s="22"></i></div>
+        <b id="camMsgTitle">Kamera tidak dapat dibuka</b>
+        <p id="camMsgText">Browser tidak mengizinkan kamera langsung di halaman ini.</p>
+        <button type="button" class="btn primary" id="camNative"><i data-ic="camera" data-s="16"></i>Buka Kamera Perangkat</button>
+      </div>
+      <div class="cam-stamp-preview" id="camStampPrev"></div>
+    </div>
+    <div class="cam-bar">
+      <label class="switch"><input type="checkbox" id="camStamp" checked><span></span>Cap waktu &amp; nama kegiatan</label>
+      <div class="cam-ctrl">
+        <button type="button" class="icon-btn" id="camSwitch" title="Ganti kamera depan/belakang"><i data-ic="refresh"></i></button>
+        <button type="button" class="shutter" id="camShot" title="Ambil foto"><span></span></button>
+        <button type="button" class="btn primary" id="camDone" disabled>Selesai</button>
+      </div>
+    </div>
+    <div class="cam-strip" id="camStrip"></div>
+  </div>
+</div>
 
-  /* Drawer detail: layar penuh */
-  .drawer{width:100%}
-  .dr-head{padding:16px 16px 14px}
-  .dr-head h2{font-size:18px}
-  .dr-body{padding:4px 16px 16px}
-  .dr-foot{padding:10px 16px calc(10px + var(--safe-b));position:sticky;bottom:0}
-  .dr-foot{gap:6px}
-  .dr-foot .btn{flex:1;min-width:0;padding:0 8px;font-size:13px;gap:5px}
-  .dr-foot .sp{display:none}
-  .quick button{height:36px;padding:0 14px;font-size:13px}
-}
+<!-- ============ DRAWER DETAIL ============ -->
+<div class="drawer-wrap" id="drawerWrap">
+  <div class="drawer-backdrop" data-close-drawer></div>
+  <aside class="drawer" id="drawer"></aside>
+</div>
 
-@media (max-width:640px){
-  /* Hindari zoom otomatis iOS saat fokus input */
-  input,select,textarea{font-size:16px!important}
-  select,input:not([type=range]):not([type=checkbox]),textarea{min-height:44px}
-  .btn{height:44px}
-  .btn.sm{height:34px}
-  .topbar-title p{display:none}
-  .grid-main>.card:first-child .card-head{flex-direction:column;align-items:stretch}
-  .seg{width:100%}.seg button{flex:1;padding:0 6px}
-  .tren-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px}
-  .select-wrap select{min-width:0;width:112px}
+<div class="toasts" id="toasts"></div>
 
-  /* KPI: geser horizontal */
-  .kpis{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:10px;margin:0 -14px 16px;padding:2px 14px;scrollbar-width:none}
-  .kpis::-webkit-scrollbar{display:none}
-  .kpi{flex:0 0 44%;scroll-snap-align:start;padding:14px}
-  .kpi-val{font-size:24px}
-
-  /* Explorer folder: tahun & bulan jadi chip geser */
-  .explorer{grid-template-columns:1fr;gap:12px}.col-wide{grid-column:auto}
-  .col-head{min-height:46px;padding:8px 10px 8px 14px}
-  #colYear,#colMonth{display:flex;gap:8px;overflow-x:auto;max-height:none;padding:10px;scrollbar-width:none}
-  #colYear::-webkit-scrollbar,#colMonth::-webkit-scrollbar{display:none}
-  #colYear .ex-item,#colMonth .ex-item{flex:0 0 auto;border:1px solid var(--border);padding:8px 10px;gap:8px}
-  #colYear .ex-item>.ic:last-child,#colMonth .ex-item>.ic:last-child{display:none}
-  #colYear .ex-item.active,#colMonth .ex-item.active{border-color:var(--primary-100)}
-  #colMonth .ex-item.ghosted .add{opacity:1}
-  #colYear .empty-mini,#colMonth .empty-mini{flex:1;padding:12px}
-  .col-body{max-height:none}
-  .folder-grid{grid-template-columns:1fr}
-  .crumb-card{padding:10px 14px}
-  .crumbs{font-size:12.5px}
-
-  /* Form & modal: layar penuh */
-  .modal{padding:0;align-items:stretch}
-  .modal-card,.modal-card.lg{max-width:none;max-height:none;height:100%;border-radius:0}
-  .modal.top .modal-card.sm{height:auto;margin:auto 0 0;border-radius:20px 20px 0 0;max-height:90vh}
-  .modal-head{padding:14px 16px}
-  .modal-body{padding:16px;flex:1}
-  .modal-foot{padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));border-radius:0}
-  .modal-foot .btn{flex:1}
-  .form-grid{grid-template-columns:1fr;gap:14px}.span-2{grid-column:auto}
-  .dest-row{grid-template-columns:1fr 1fr}
-  .dest-row #kFolder{grid-column:1/-1}
-  .up-actions{grid-template-columns:1fr 1fr}
-  .up-btn{padding:12px 8px}
-  .up-btn.cam{grid-column:1/-1;flex-direction:row;justify-content:center;gap:10px;padding:16px}
-  .up-btn small{display:none}
-  .up-btn.cam small{display:none}
-  .cam-stage{aspect-ratio:3/4;max-height:62vh}
-  .modal-card.cam-card{max-height:100vh;border-radius:0}
-  #mCamera .modal-card{height:100%}
-  .cam-stage{flex:1;max-height:none;aspect-ratio:auto}
-  .cam-bar{padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px))}
-  .prog-box{flex-direction:column;align-items:stretch}.ring{margin:0 auto}
-  .files{grid-template-columns:repeat(3,1fr)}
-  .pdf-card{flex-wrap:wrap}
-  .pdf-card .grow{flex:1 1 calc(100% - 60px)}
-  .pdf-card .t{white-space:normal;overflow:visible}
-  .pdf-card .acts{width:100%}
-  .pdf-card .acts .btn{flex:1;height:40px}
-  .rte-area{min-height:160px;max-height:none}
-  .fi-del{opacity:1}
-  .meta-grid{grid-template-columns:1fr}
-}
-</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<?!= include('Script'); ?>
+</body>
+</html>
