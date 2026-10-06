@@ -291,6 +291,7 @@ function bindStatic() {
   $('#yearFilter').addEventListener('change', e => { S.year = e.target.value; render(); });
   $('#btnRefresh').addEventListener('click', refreshAll);
   $('#btnNew').addEventListener('click', () => openForm(null));
+  $('#trenSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setTrenRange(b.dataset.r); });
 
   // Filter kegiatan
   $('#fSearch').addEventListener('input', e => { S.filters.q = e.target.value; renderKegiatan(); });
@@ -437,29 +438,8 @@ function renderDashboard() {
     '<div class="card kpi tone-' + k.t + '"><div class="kpi-top"><span class="kpi-label">' + k.l + '</span><span class="kpi-ic">' + ic(k.i, 17) + '</span></div>' +
     '<div class="kpi-val">' + k.v + '</div><div class="kpi-sub">' + k.s + '</div></div>').join('');
 
-  // Chart per bulan (stacked)
-  const by = { 'Belum Mulai': Array(12).fill(0), 'Berjalan': Array(12).fill(0), 'Selesai': Array(12).fill(0) };
-  L.forEach(k => { if (k.bulan >= 1 && k.bulan <= 12) by[statusOf(k.progres)][k.bulan - 1]++; });
-  $('#chartBulanSub').textContent = 'Jumlah kegiatan berdasarkan status · ' + yl;
-  drawChart('bulan', 'chartBulan', {
-    type: 'bar',
-    data: {
-      labels: BLN,
-      datasets: [
-        { label: 'Selesai', data: by['Selesai'], backgroundColor: '#10b981', borderRadius: 4, maxBarThickness: 28 },
-        { label: 'Berjalan', data: by['Berjalan'], backgroundColor: '#3b82f6', borderRadius: 4, maxBarThickness: 28 },
-        { label: 'Belum Mulai', data: by['Belum Mulai'], backgroundColor: '#cbd5e1', borderRadius: 4, maxBarThickness: 28 }
-      ]
-    },
-    options: {
-      maintainAspectRatio: false,
-      plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 8, padding: 18 } } },
-      scales: {
-        x: { stacked: true, grid: { display: false } },
-        y: { stacked: true, beginAtZero: true, ticks: { precision: 0 }, grid: { color: '#eef2f7' }, border: { display: false } }
-      }
-    }
-  });
+  // Grafik tren: harian (7 / 30 hari terakhir) atau per bulan
+  renderTren();
 
   // Donut status
   $('#donutPct').textContent = total ? Math.round(done / total * 100) + '%' : '0%';
@@ -515,6 +495,94 @@ function renderDashboard() {
 }
 
 function emptyMini(t) { return '<div class="empty-mini">' + esc(t) + '</div>'; }
+
+/* ---------- Grafik tren kegiatan (harian 7/30 hari atau per bulan) ---------- */
+const HARI_PENDEK = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+function trenRange() { try { return localStorage.getItem('dk_tren') || '7'; } catch (e) { return '7'; } }
+function setTrenRange(r) { try { localStorage.setItem('dk_tren', r); } catch (e) { /* abaikan */ } renderTren(); }
+
+/** Tanggal kegiatan (yyyy-mm-dd): tanggal pelaksanaan, atau tanggal dibuat bila kosong. */
+function tglKegiatan(k) {
+  const m = String(k.tanggal || k.dibuat || '').match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : '';
+}
+/** Daftar tanggal (yyyy-mm-dd) n hari terakhir s.d. hari ini — dihitung di UTC agar bebas zona waktu. */
+function lastNDays(n) {
+  const [y, mo, d] = String(S.now.tanggal).split('-').map(Number);
+  const end = Date.UTC(y, mo - 1, d), out = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const t = new Date(end - i * 86400000);
+    out.push(t.toISOString().slice(0, 10));
+  }
+  return out;
+}
+
+function renderTren() {
+  const r = trenRange();
+  $$('#trenSeg button').forEach(b => b.classList.toggle('on', b.dataset.r === r));
+  const ds = (by, color, label) => ({ label: label, data: by, backgroundColor: color, borderRadius: 4, maxBarThickness: r === '30' ? 16 : 32 });
+  const legend = { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 8, padding: 18 } };
+  let labels, by, tooltipTitle = null;
+
+  if (r === 'bulan') {
+    const L = byYear(S.data);
+    by = { 'Belum Mulai': Array(12).fill(0), 'Berjalan': Array(12).fill(0), 'Selesai': Array(12).fill(0) };
+    L.forEach(k => { if (k.bulan >= 1 && k.bulan <= 12) by[statusOf(k.progres)][k.bulan - 1]++; });
+    labels = BLN;
+    $('#chartTrenTitle').textContent = 'Kegiatan per Bulan';
+    $('#chartBulanSub').textContent = 'Jumlah kegiatan berdasarkan status · ' + (S.year === 'all' ? 'Semua tahun' : 'Tahun ' + S.year);
+    $('#trenStats').innerHTML = '';
+  } else {
+    // Harian: relatif terhadap hari ini (tidak terpengaruh filter tahun)
+    const n = Number(r), days = lastNDays(n), idx = {};
+    days.forEach((d, i) => { idx[d] = i; });
+    by = { 'Belum Mulai': Array(n).fill(0), 'Berjalan': Array(n).fill(0), 'Selesai': Array(n).fill(0) };
+    const totals = Array(n).fill(0);
+    S.data.forEach(k => {
+      const i = idx[tglKegiatan(k)];
+      if (i === undefined) return;
+      by[statusOf(k.progres)][i]++; totals[i]++;
+    });
+    labels = days.map(d => {
+      const [y, m, dd] = d.split('-').map(Number);
+      const wd = new Date(Date.UTC(y, m - 1, dd)).getUTCDay();
+      const lbl = n === 7 ? [HARI_PENDEK[wd], dd + ' ' + BLN[m - 1]] : dd + ' ' + BLN[m - 1];
+      return d === S.now.tanggal ? (n === 7 ? ['Hari ini', dd + ' ' + BLN[m - 1]] : 'Hari ini') : lbl;
+    });
+    tooltipTitle = items => {
+      const d = days[items[0].dataIndex], [y, m, dd] = d.split('-').map(Number);
+      const wd = new Date(Date.UTC(y, m - 1, dd)).getUTCDay();
+      return ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', "Jum'at", 'Sabtu'][wd] + ', ' + dd + ' ' + BULAN[m - 1] + ' ' + y + ' — ' + totals[items[0].dataIndex] + ' kegiatan';
+    };
+    const sum = totals.reduce((a, b) => a + b, 0);
+    const maxV = Math.max.apply(null, totals);
+    const peak = maxV > 0 ? fmtDate(days[totals.lastIndexOf(maxV)]) : '-';
+    const aktif = totals.filter(v => v > 0).length;
+    $('#chartTrenTitle').textContent = 'Kegiatan Harian';
+    $('#chartBulanSub').textContent = (n === 7 ? '7 hari terakhir' : '30 hari terakhir') + ' · ' + fmtDate(days[0]) + ' – ' + fmtDate(days[n - 1]) + ' · berdasarkan tanggal kegiatan';
+    $('#trenStats').innerHTML =
+      '<div><small>Total kegiatan</small><b>' + sum + '</b></div>' +
+      '<div><small>Rata-rata / hari</small><b>' + (sum / n).toFixed(1).replace('.', ',') + '</b></div>' +
+      '<div><small>Hari aktif</small><b>' + aktif + ' / ' + n + '</b></div>' +
+      '<div><small>Tersibuk</small><b>' + (maxV > 0 ? peak + ' (' + maxV + ')' : '-') + '</b></div>';
+  }
+
+  drawChart('bulan', 'chartBulan', {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [ds(by['Selesai'], '#10b981', 'Selesai'), ds(by['Berjalan'], '#3b82f6', 'Berjalan'), ds(by['Belum Mulai'], '#cbd5e1', 'Belum Mulai')]
+    },
+    options: {
+      maintainAspectRatio: false,
+      plugins: { legend: legend, tooltip: tooltipTitle ? { callbacks: { title: tooltipTitle } } : {} },
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { autoSkip: true, maxRotation: 0, autoSkipPadding: 8 } },
+        y: { stacked: true, beginAtZero: true, ticks: { precision: 0 }, grid: { color: '#eef2f7' }, border: { display: false } }
+      }
+    }
+  });
+}
 
 function drawChart(key, id, cfg) {
   if (!window.Chart) return;
