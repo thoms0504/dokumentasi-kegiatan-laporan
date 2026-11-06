@@ -7,13 +7,15 @@
  *  Setiap kegiatan       : 1 Google Doc ringkasan (Kegiatan + Isi + Progres)
  *                          + file dokumentasi yang diunggah, semuanya masuk ke
  *                          folder Tahun > Bulan > Folder user.
+ *  Login                 : email + OTP (lihat Auth.gs). Semua fungsi data
+ *                          dipanggil klien lewat rpc() yang memeriksa sesi.
+ *  Salin / Pindah        : laporan (PDF berisi foto + berkas lampiran) bisa
+ *                          disalin atau dipindah ke folder kegiatan lain.
  * ============================================================================
  */
 
 // ====== KONFIGURASI =========================================================
-// WAJIB DIISI: ID folder Google Drive tempat semua dokumentasi disimpan.
-// Ambil dari URL folder: https://drive.google.com/drive/folders/<ID_FOLDER>
-const ROOT_FOLDER_ID = 'GANTI_DENGAN_ID_FOLDER_DRIVE_ANDA';
+const ROOT_FOLDER_ID = '16JuF30nsHT2gAas88DtWUnNUACgal-84';
 const APP_NAME = 'Dokumentasi Kegiatan';
 const TZ = 'Asia/Jakarta';
 const BULAN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli',
@@ -95,12 +97,16 @@ function setup() {
   Logger.log('Folder root : ' + root.getName() + ' — ' + root.getUrl());
   Logger.log('Database    : ' + ss.getUrl());
   Logger.log('Favicon     : ' + (icon || 'gagal dibuat — isi FAVICON_URL secara manual'));
+  Logger.log('Email login : ' + ALLOWED_EMAILS.join(', ') + ' (OTP dikirim lewat MailApp, sisa kuota hari ini: ' + MailApp.getRemainingDailyQuota() + ')');
 }
 
 // ====== HELPER UMUM =========================================================
 function getRoot_() { return DriveApp.getFolderById(ROOT_FOLDER_ID); }
 function nowStr_() { return Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'); }
-function userEmail_() { try { return Session.getActiveUser().getEmail() || ''; } catch (e) { return ''; } }
+function userEmail_() {
+  if (typeof CURRENT_USER_ !== 'undefined' && CURRENT_USER_) return CURRENT_USER_; // pengguna login OTP
+  try { return Session.getActiveUser().getEmail() || ''; } catch (e) { return ''; }
+}
 function pad2_(n) { return ('0' + n).slice(-2); }
 function monthFolderName_(b) { return pad2_(b) + ' - ' + BULAN[b - 1]; }
 function clampProgress_(p) { p = Math.round(Number(p) || 0); return Math.max(0, Math.min(100, p)); }
@@ -261,7 +267,7 @@ function cleanIsi_(isi) {
 }
 
 // ====== STRUKTUR FOLDER =====================================================
-function getFolderTree() {
+function getFolderTree_() {
   const root = getRoot_();
   const years = [];
   const yi = root.getFolders();
@@ -346,20 +352,20 @@ function folderPath_(folder) {
   return names.join(' / ');
 }
 
-function createYear(tahun) {
+function createYear_(tahun) {
   tahun = validateYear_(tahun);
   getOrCreate_(getRoot_(), String(tahun));
-  return { tree: getFolderTree() };
+  return { tree: getFolderTree_() };
 }
 
-function createMonth(tahun, bulan) {
+function createMonth_(tahun, bulan) {
   tahun = validateYear_(tahun);
   bulan = validateMonth_(bulan);
   ensureMonth_(tahun, bulan);
-  return { tree: getFolderTree() };
+  return { tree: getFolderTree_() };
 }
 
-function createUserFolder(tahun, bulan, nama) {
+function createUserFolder_(tahun, bulan, nama) {
   tahun = validateYear_(tahun);
   bulan = validateMonth_(bulan);
   nama = cleanFolderName_(nama);
@@ -369,7 +375,7 @@ function createUserFolder(tahun, bulan, nama) {
     const month = ensureMonth_(tahun, bulan);
     if (findChildFolder_(month, nama)) throw new Error('Folder "' + nama + '" sudah ada di bulan ini.');
     const f = month.createFolder(nama);
-    return { tree: getFolderTree(), folder: { id: f.getId(), name: f.getName(), url: f.getUrl() } };
+    return { tree: getFolderTree_(), folder: { id: f.getId(), name: f.getName(), url: f.getUrl() } };
   } finally {
     lock.releaseLock();
   }
@@ -381,7 +387,7 @@ function createUserFolder(tahun, bulan, nama) {
  * - Kegiatan yang tersimpan di folder tsb. (termasuk semua sub-folder) dihapus dari database.
  * - Folder root aplikasi tidak bisa dihapus.
  */
-function deleteFolder(folderId) {
+function deleteFolder_(folderId) {
   if (!folderId || folderId === ROOT_FOLDER_ID) throw new Error('Folder utama aplikasi tidak bisa dihapus.');
   const f = DriveApp.getFolderById(folderId);
   if (f.isTrashed()) throw new Error('Folder sudah ada di Sampah.');
@@ -424,11 +430,11 @@ function deleteFolder(folderId) {
     lock.releaseLock();
   }
   removed.forEach(trashMedia_);
-  return { tree: getFolderTree(), level: level, name: f.getName(), removedIds: removed };
+  return { tree: getFolderTree_(), level: level, name: f.getName(), removedIds: removed };
 }
 
 /** Buat sub-folder di dalam folder kegiatan (bisa bertingkat). */
-function createSubFolder(parentId, nama) {
+function createSubFolder_(parentId, nama) {
   nama = cleanFolderName_(nama);
   const parent = DriveApp.getFolderById(parentId);
   const depth = depthUnderMonth_(parent);
@@ -439,19 +445,19 @@ function createSubFolder(parentId, nama) {
   try {
     if (findChildFolder_(parent, nama)) throw new Error('Folder "' + nama + '" sudah ada di dalam "' + parent.getName() + '".');
     const f = parent.createFolder(nama);
-    return { tree: getFolderTree(), folder: { id: f.getId(), name: f.getName(), url: f.getUrl() } };
+    return { tree: getFolderTree_(), folder: { id: f.getId(), name: f.getName(), url: f.getUrl() } };
   } finally {
     lock.releaseLock();
   }
 }
 
 // ====== DATA AWAL ===========================================================
-function getInitialData() {
+function getInitialData_() {
   const ss = getDb_();
   const d = new Date();
   return {
     kegiatan: readKegiatan_(),
-    tree: getFolderTree(),
+    tree: getFolderTree_(),
     user: userEmail_(),
     rootUrl: getRoot_().getUrl(),
     dbUrl: ss.getUrl(),
@@ -464,7 +470,7 @@ function getInitialData() {
 }
 
 // ====== KEGIATAN (CRUD) =====================================================
-function saveKegiatan(d) {
+function saveKegiatan_(d) {
   if (!d) throw new Error('Data kosong.');
   const judul = String(d.kegiatan || '').trim();
   if (!judul) throw new Error('Nama kegiatan wajib diisi.');
@@ -529,7 +535,7 @@ function saveKegiatan(d) {
   return getRecord_(rec.id).rec;
 }
 
-function updateProgress(id, progres, catatan) {
+function updateProgress_(id, progres, catatan) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
@@ -543,10 +549,10 @@ function updateProgress(id, progres, catatan) {
   } finally {
     lock.releaseLock();
   }
-  return getDetail(id); // klien lalu memanggil buatLaporanPdf
+  return getDetail_(id); // klien lalu memanggil buatLaporanPdf
 }
 
-function deleteKegiatan(id) {
+function deleteKegiatan_(id) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
@@ -567,7 +573,7 @@ const TAG_BUKTI = '[Bukti Dukung]';
 /*
  * PENYIMPANAN FOTO
  * Foto TIDAK disimpan sebagai file di Drive — foto dikirim klien lewat
- * tambahFotoLaporan() dan tersimpan HANYA di dalam laporan PDF (lihat Laporan.gs).
+ * tambahFotoLaporan_() dan tersimpan HANYA di dalam laporan PDF (lihat Laporan.gs).
  * Folder "_Media Laporan" hanya dipakai versi sebelumnya; foto lama di sana
  * otomatis dipindah ke dalam PDF oleh pindahkanFotoKeLaporan() / saat PDF disusun.
  */
@@ -670,12 +676,12 @@ function setFileCount_(id, count) {
  * file = { name, mimeType, data (base64), kategori: 'dokumentasi' | 'bukti' }
  * Diunggah satu per satu dari klien (termasuk foto hasil kamera langsung).
  */
-function uploadDokumentasi(id, file) {
+function uploadDokumentasi_(id, file) {
   if (!file || !file.data) throw new Error('File kosong.');
   const rec = getRecord_(id).rec;
   const isBukti = file.kategori === 'bukti';
   const isImg = isImageMime_(file.mimeType);
-  // Foto tidak disimpan di Drive — dikirim klien lewat tambahFotoLaporan (langsung ke PDF)
+  // Foto tidak disimpan di Drive — dikirim klien lewat tambahFotoLaporan_ (langsung ke PDF)
   if (isImg) throw new Error('Foto dikirim langsung ke laporan PDF. Muat ulang aplikasi lalu coba lagi.');
   let folder = DriveApp.getFolderById(rec.folderId);
   if (isBukti) folder = getOrCreate_(folder, BUKTI_FOLDER);
@@ -687,7 +693,7 @@ function uploadDokumentasi(id, file) {
   return { record: updated, file: fileInfo_(f, isImg) };
 }
 
-function deleteFile(id, fileId) {
+function deleteFile_(id, fileId) {
   const rec = getRecord_(id).rec;
   const f = DriveApp.getFileById(fileId);
   if (String(f.getDescription() || '').indexOf('[' + rec.id + ']') !== 0) {
@@ -695,10 +701,10 @@ function deleteFile(id, fileId) {
   }
   f.setTrashed(true);
   setFileCount_(id, listFiles_(rec).length);
-  return getDetail(id); // klien lalu memanggil buatLaporanPdf
+  return getDetail_(id); // klien lalu memanggil buatLaporanPdf
 }
 
-function getDetail(id) {
+function getDetail_(id) {
   const rec = getRecord_(id).rec;
   // Foto tersimpan di dalam PDF (bukan file Drive) → tampilkan dari ringkasan fotoJson
   const fotos = fotoMeta_(rec).map(function (m) {
@@ -706,4 +712,121 @@ function getDetail(id) {
       kategori: m.k === 'b' ? 'bukti' : 'dokumentasi', created: m.t, url: rec.docUrl, thumb: '' };
   }).reverse();
   return { record: rec, riwayat: readRiwayat_(id), files: fotos.concat(listFiles_(rec)) };
+}
+
+// ====== SALIN / PINDAH LAPORAN ==============================================
+/** Lokasi folder kegiatan tujuan → { tahun, bulan, path }. Error bila bukan folder kegiatan. */
+function lokasiFolder_(folder) {
+  if (folder.isTrashed()) throw new Error('Folder tujuan ada di Sampah.');
+  const depth = depthUnderMonth_(folder);
+  if (depth < 1) throw new Error('Tujuan harus berupa folder kegiatan (di dalam folder bulan).');
+  let m = folder;
+  for (let i = 0; i < depth; i++) m = parentOf_(m);
+  const y = parentOf_(m);
+  return {
+    tahun: String(validateYear_(y.getName())),
+    bulan: validateMonth_(m.getName().match(/^(\d{1,2})/)[1]),
+    path: folderPath_(folder)
+  };
+}
+function lokasiTeks_(r) { return r.tahun + ' › ' + (BULAN[r.bulan - 1] || '-') + ' › ' + String(r.folderPath || r.folderNama).split(' / ').join(' › '); }
+
+/**
+ * SALIN (copas) laporan ke folder lain → kegiatan baru (ID baru) berisi:
+ * salinan PDF (beserta semua foto di dalamnya), salinan berkas dokumentasi &
+ * bukti dukung, serta riwayat progres. Klien lalu memanggil buatLaporanPdf
+ * (ID baru) agar halaman PDF memuat ID & lokasi yang baru.
+ */
+function salinLaporan_(id, targetFolderId) {
+  const target = DriveApp.getFolderById(targetFolderId);
+  const loc = lokasiFolder_(target);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(60000);
+  let baru;
+  try {
+    const src = getRecord_(id).rec;
+    const now = nowStr_();
+    baru = Object.assign({}, src, {
+      id: newId_(), tahun: loc.tahun, bulan: loc.bulan,
+      folderNama: target.getName(), folderId: target.getId(), folderUrl: target.getUrl(), folderPath: loc.path,
+      docId: '', docUrl: '', dibuat: now, diperbarui: now, dibuatOleh: userEmail_()
+    });
+
+    // 1) PDF laporan (foto hanya tersimpan di sini → wajib ikut tersalin)
+    if (src.docId) {
+      try {
+        const pdf = DriveApp.getFileById(src.docId);
+        if (!pdf.isTrashed()) {
+          const c = pdf.makeCopy(pdf.getName(), target);
+          c.setDescription('Laporan PDF ' + baru.id + ' — berisi foto dokumentasi. Jangan dihapus. (' + APP_NAME + ')');
+          baru.docId = c.getId(); baru.docUrl = c.getUrl();
+        }
+      } catch (e) { Logger.log(e); }
+    }
+    if (!baru.docId && fotoMeta_(src).length) {
+      throw new Error('Laporan PDF sumber (berisi foto) tidak ditemukan, sehingga laporan tidak dapat disalin.');
+    }
+
+    // 2) Berkas dokumentasi & bukti dukung (tag deskripsi diganti ke ID baru)
+    const tagOld = '[' + src.id + ']', tagNew = '[' + baru.id + ']';
+    let bukti = null;
+    listFiles_(src).forEach(function (f) {
+      if (f.embedded) return;
+      const dest = f.kategori === 'bukti' ? (bukti = bukti || getOrCreate_(target, BUKTI_FOLDER)) : target;
+      const file = DriveApp.getFileById(f.id);
+      const c = file.makeCopy(file.getName(), dest);
+      c.setDescription(tagNew + String(file.getDescription() || '').slice(tagOld.length));
+    });
+
+    const ss = getDb_();
+    const sh = ss.getSheetByName(SHEET_K);
+    writeRow_(sh, sh.getLastRow() + 1, baru);
+
+    // 3) Riwayat progres ikut disalin + catatan asal salinan
+    const rows = readRiwayat_(src.id).reverse().map(function (r) {
+      return [r.waktu, baru.id, r.progres, safeCell_(r.catatan), r.oleh];
+    });
+    rows.push([now, baru.id, baru.progres, 'Disalin dari ' + lokasiTeks_(src) + ' (' + src.id + ')', userEmail_()]);
+    const shR = ss.getSheetByName(SHEET_R);
+    shR.getRange(shR.getLastRow() + 1, 1, rows.length, 5).setValues(rows);
+  } finally {
+    lock.releaseLock();
+  }
+  return getRecord_(baru.id).rec;
+}
+
+/**
+ * PINDAHKAN laporan ke folder lain: PDF & berkas lampiran dipindah (bukan
+ * disalin), data kegiatan diperbarui ke lokasi baru, ID tetap sama.
+ * Klien lalu memanggil buatLaporanPdf agar "Lokasi Arsip" di PDF ikut berubah.
+ */
+function pindahLaporan_(id, targetFolderId) {
+  const target = DriveApp.getFolderById(targetFolderId);
+  const loc = lokasiFolder_(target);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(60000);
+  try {
+    const r = getRecord_(id), rec = r.rec;
+    if (rec.folderId === target.getId()) throw new Error('Laporan sudah berada di folder tersebut.');
+    const asal = lokasiTeks_(rec);
+
+    let bukti = null;
+    listFiles_(rec).forEach(function (f) {
+      if (f.embedded) return;
+      const dest = f.kategori === 'bukti' ? (bukti = bukti || getOrCreate_(target, BUKTI_FOLDER)) : target;
+      DriveApp.getFileById(f.id).moveTo(dest);
+    });
+    if (rec.docId) {
+      try { const pdf = DriveApp.getFileById(rec.docId); if (!pdf.isTrashed()) pdf.moveTo(target); } catch (e) { Logger.log(e); }
+    }
+
+    rec.tahun = loc.tahun; rec.bulan = loc.bulan;
+    rec.folderNama = target.getName(); rec.folderId = target.getId(); rec.folderUrl = target.getUrl(); rec.folderPath = loc.path;
+    rec.diperbarui = nowStr_();
+    writeRow_(r.sh, r.row, rec);
+    logRiwayat_(id, rec.progres, 'Dipindahkan dari ' + asal + ' ke ' + lokasiTeks_(rec));
+  } finally {
+    lock.releaseLock();
+  }
+  return getRecord_(id).rec;
 }
