@@ -4,6 +4,18 @@
   <base target="_top">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+    /* Terapkan tema sebelum halaman tampil (tanpa kedip putih di mode gelap) */
+    (function () {
+      var r = document.documentElement;
+      try {
+        var t = JSON.parse(localStorage.getItem('dk_theme') || '{}'), m = t.mode || 'system';
+        var dark = m === 'dark' || (m === 'system' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+        r.setAttribute('data-theme', dark ? 'dark' : 'light');
+        r.setAttribute('data-accent', t.accent || 'biru');
+      } catch (e) { r.setAttribute('data-theme', 'light'); r.setAttribute('data-accent', 'biru'); }
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <?!= include('Style'); ?>
@@ -15,6 +27,51 @@
   <div class="loader-box">
     <div class="spinner"></div>
     <p id="loaderText">Memuat data kegiatan…</p>
+  </div>
+</div>
+
+<!-- ============ LOGIN (EMAIL + OTP) ============ -->
+<div id="login" class="login hidden">
+  <button type="button" class="icon-btn login-theme" id="lgTheme" title="Tampilan (mode gelap & warna tema)"><i data-ic="palette"></i></button>
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="brand-logo"><i data-ic="file"></i></div>
+      <div><div class="brand-name">DokuKegiatan</div><div class="brand-sub">Dokumentasi Kantor</div></div>
+    </div>
+
+    <form id="lgStep1" class="login-step" autocomplete="on" novalidate>
+      <div class="login-ic"><i data-ic="lock" data-s="22"></i></div>
+      <h2>Masuk ke aplikasi</h2>
+      <p class="muted">Masukkan email aktif Anda. Kode OTP 6 digit akan dikirim ke email tersebut.</p>
+      <label class="fld">
+        <span>Email</span>
+        <div class="input-ic"><i data-ic="mail" data-s="16"></i><input id="lgEmail" type="email" name="email" autocomplete="email" inputmode="email" placeholder="nama@gmail.com" required></div>
+      </label>
+      <label class="check"><input type="checkbox" id="lgRemember" checked><span>Ingat saya di perangkat ini (30 hari)</span></label>
+      <div class="login-err hidden" id="lgErr1"></div>
+      <button class="btn primary block" id="lgSend" type="submit"><i data-ic="mail" data-s="16"></i>Kirim Kode OTP</button>
+    </form>
+
+    <form id="lgStep2" class="login-step hidden" novalidate>
+      <button type="button" class="link-back" id="lgBack"><i data-ic="chev" data-s="14"></i>Ganti email</button>
+      <div class="login-ic"><i data-ic="shield" data-s="22"></i></div>
+      <h2>Masukkan kode OTP</h2>
+      <p class="muted" id="lgSentTo">Kode telah dikirim ke email Anda.</p>
+      <div class="otp-boxes" id="lgOtp">
+        <input inputmode="numeric" maxlength="6" autocomplete="one-time-code" aria-label="Digit 1">
+        <input inputmode="numeric" maxlength="1" aria-label="Digit 2">
+        <input inputmode="numeric" maxlength="1" aria-label="Digit 3">
+        <input inputmode="numeric" maxlength="1" aria-label="Digit 4">
+        <input inputmode="numeric" maxlength="1" aria-label="Digit 5">
+        <input inputmode="numeric" maxlength="1" aria-label="Digit 6">
+      </div>
+      <div class="login-err hidden" id="lgErr2"></div>
+      <button class="btn primary block" id="lgVerify" type="submit"><i data-ic="checkCircle" data-s="16"></i>Verifikasi &amp; Masuk</button>
+      <div class="login-resend"><span id="lgTimer" class="muted"></span><button type="button" class="link" id="lgResend">Kirim ulang kode</button></div>
+      <p class="login-tip muted">Tidak menerima email? Periksa folder <b>Spam</b> / <b>Promosi</b>.</p>
+    </form>
+
+    <div class="login-foot muted"><i data-ic="shield" data-s="13"></i>Hanya email terdaftar yang dapat masuk. Kode berlaku 10 menit.</div>
   </div>
 </div>
 
@@ -38,6 +95,10 @@
       <div class="nav-label">Tautan</div>
       <a class="nav-item" id="lnkRoot" target="_blank" rel="noopener"><i data-ic="external"></i><span>Buka Google Drive</span></a>
       <a class="nav-item" id="lnkDb" target="_blank" rel="noopener"><i data-ic="sheet"></i><span>Database Sheets</span></a>
+
+      <div class="nav-label">Pengaturan</div>
+      <a class="nav-item" id="navTheme"><i data-ic="palette"></i><span>Tampilan</span></a>
+      <a class="nav-item" id="navLogout"><i data-ic="logout"></i><span>Keluar</span></a>
     </nav>
 
     <div class="sidebar-foot">
@@ -46,6 +107,7 @@
         <small>Masuk sebagai</small>
         <div id="userEmail" class="ellipsis">Pengguna</div>
       </div>
+      <button type="button" class="icon-btn sm" id="btnLogout" title="Keluar"><i data-ic="logout" data-s="16"></i></button>
     </div>
   </aside>
   <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
@@ -63,6 +125,7 @@
           <i data-ic="calendar" data-s="16"></i>
           <select id="yearFilter" aria-label="Filter tahun"></select>
         </div>
+        <button class="icon-btn" id="btnTheme" title="Tampilan (mode gelap & warna tema)"><span id="thIcon"></span></button>
         <button class="icon-btn" id="btnRefresh" title="Muat ulang data"><i data-ic="refresh"></i></button>
         <button class="btn primary" id="btnNew"><i data-ic="plus" data-s="16"></i><span>Kegiatan Baru</span></button>
       </div>
@@ -76,8 +139,14 @@
         <div class="grid-main">
           <div class="card">
             <div class="card-head">
-              <div><h3>Kegiatan per Bulan</h3><p class="muted" id="chartBulanSub">Jumlah kegiatan berdasarkan status</p></div>
+              <div><h3 id="chartTrenTitle">Kegiatan Harian</h3><p class="muted" id="chartBulanSub">Jumlah kegiatan berdasarkan status</p></div>
+              <div class="seg" id="trenSeg" role="tablist" aria-label="Rentang grafik">
+                <button type="button" data-r="7" class="on">7 Hari</button>
+                <button type="button" data-r="30">30 Hari</button>
+                <button type="button" data-r="bulan">Per Bulan</button>
+              </div>
             </div>
+            <div class="tren-stats" id="trenStats"></div>
             <div class="chart-box"><canvas id="chartBulan"></canvas></div>
           </div>
           <div class="card">
@@ -120,6 +189,14 @@
         <div class="card list-card">
           <div class="list-top">
             <span id="kSummary" class="muted">—</span>
+            <button type="button" class="btn ghost sm" id="btnSelect"><i data-ic="checkSquare" data-s="14"></i><span>Pilih</span></button>
+          </div>
+          <div class="bulk-bar hidden" id="bulkBar">
+            <label class="check"><input type="checkbox" id="bulkAll"><span id="bulkCount">0 dipilih</span></label>
+            <span class="sp"></span>
+            <button type="button" class="btn ghost sm" id="bulkCopy"><i data-ic="copy" data-s="14"></i>Salin ke…</button>
+            <button type="button" class="btn primary sm" id="bulkMove"><i data-ic="move" data-s="14"></i>Pindahkan ke…</button>
+            <button type="button" class="btn ghost sm" id="bulkCancel">Batal</button>
           </div>
           <div class="k-head">
             <span>Kegiatan</span><span>Folder</span><span>Tanggal &amp; PIC</span><span>Progres</span><span>Status</span>
@@ -321,6 +398,67 @@
   </div>
 </div>
 
+<!-- ============ MODAL: TAMPILAN (MODE GELAP & TEMA) ============ -->
+<div class="modal top" id="mTheme">
+  <div class="modal-card sm">
+    <div class="modal-head">
+      <div><h3>Tampilan</h3><p class="muted">Mode terang / gelap dan warna tema</p></div>
+      <button class="icon-btn" data-close aria-label="Tutup"><i data-ic="x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="th-label">Mode</div>
+      <div class="th-modes" id="thModes">
+        <button type="button" data-mode="light"><span class="th-prev light"><i></i><i></i></span><span><i data-ic="sun" data-s="14"></i>Terang</span></button>
+        <button type="button" data-mode="dark"><span class="th-prev dark"><i></i><i></i></span><span><i data-ic="moon" data-s="14"></i>Gelap</span></button>
+        <button type="button" data-mode="system"><span class="th-prev system"><i></i><i></i></span><span><i data-ic="monitor" data-s="14"></i>Sistem</span></button>
+      </div>
+      <div class="th-label">Warna Tema</div>
+      <div class="th-accents" id="thAccents"></div>
+      <p class="muted th-note">Pengaturan tampilan disimpan di perangkat/browser ini.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: SALIN / PINDAHKAN LAPORAN ============ -->
+<div class="modal top" id="mMove">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div><h3 id="mvTitle">Salin Laporan</h3><p class="muted" id="mvSub">Pilih folder tujuan di Drive</p></div>
+      <button class="icon-btn" data-close aria-label="Tutup"><i data-ic="x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="fld">
+        <span>Aksi</span>
+        <div class="seg seg-wide" id="mvMode">
+          <button type="button" data-m="copy"><i data-ic="copy" data-s="14"></i>Salin (copas)</button>
+          <button type="button" data-m="move"><i data-ic="move" data-s="14"></i>Pindahkan</button>
+        </div>
+        <small class="hint" id="mvHint"></small>
+      </div>
+      <div class="fld mv-fld">
+        <span id="mvListLabel">Laporan</span>
+        <div class="mv-list" id="mvList"></div>
+      </div>
+      <div class="fld mv-fld">
+        <span>Folder Tujuan <em>*</em></span>
+        <div class="dest-row mv-dest">
+          <select id="mvTahun" aria-label="Tahun"></select>
+          <select id="mvBulan" aria-label="Bulan"></select>
+          <select id="mvFolder" aria-label="Folder"></select>
+          <button type="button" class="btn ghost" id="mvNewFolder" title="Folder baru di bulan ini"><i data-ic="plus" data-s="14"></i>Folder</button>
+        </div>
+        <small class="hint" id="mvPath"></small>
+        <div id="mvWarn"></div>
+      </div>
+      <div id="mvProgress"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" data-close type="button">Batal</button>
+      <button class="btn primary" id="mvOk" type="button">Salin</button>
+    </div>
+  </div>
+</div>
+
 <!-- ============ INPUT FILE TERSEMBUNYI ============ -->
 <input type="file" id="inDoc" multiple accept="image/*,video/*" hidden>
 <input type="file" id="inBukti" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,image/*" hidden>
@@ -337,7 +475,7 @@
       <video id="camVideo" autoplay playsinline muted></video>
       <div class="cam-flash" id="camFlash"></div>
       <div class="cam-msg hidden" id="camMsg">
-        <div class="confirm-ic" style="background:#eff4ff;color:#2563eb"><i data-ic="camera" data-s="22"></i></div>
+        <div class="confirm-ic" style="background:var(--primary-50);color:var(--primary)"><i data-ic="camera" data-s="22"></i></div>
         <b id="camMsgTitle">Kamera tidak dapat dibuka</b>
         <p id="camMsgText">Browser tidak mengizinkan kamera langsung di halaman ini.</p>
         <button type="button" class="btn primary" id="camNative"><i data-ic="camera" data-s="16"></i>Buka Kamera Perangkat</button>
