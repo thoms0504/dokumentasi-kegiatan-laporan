@@ -83,16 +83,16 @@ async function cekLaporanPdf() {
 
 // ====== API (dipanggil klien) ===============================================
 /** Susun ulang laporan PDF (setelah simpan, ubah progres, unggah/hapus dokumen). */
-async function buatLaporanPdf(id) {
+async function buatLaporanPdf_(id) {
   await buildPdf_(id, {});
-  return getDetail(id);
+  return getDetail_(id);
 }
 
 /**
  * Tambah foto langsung ke laporan PDF — TANPA menyimpan file foto di Drive.
  * photos = [{ name, data (base64 JPEG), kategori: 'dokumentasi' | 'bukti' }]
  */
-async function tambahFotoLaporan(id, photos) {
+async function tambahFotoLaporan_(id, photos) {
   if (!photos || !photos.length) throw new Error('Tidak ada foto.');
   const add = photos.map(function (p) {
     if (!p || !p.data) throw new Error('Foto kosong.');
@@ -108,13 +108,13 @@ async function tambahFotoLaporan(id, photos) {
     };
   });
   await buildPdf_(id, { add: add });
-  return getDetail(id);
+  return getDetail_(id);
 }
 
 /** Hapus satu foto dari laporan PDF (berdasarkan uid). */
-async function hapusFotoLaporan(id, uid) {
+async function hapusFotoLaporan_(id, uid) {
   await buildPdf_(id, { remove: String(uid) });
-  return getDetail(id);
+  return getDetail_(id);
 }
 
 /** Jalankan dari editor: susun ulang PDF semua kegiatan. */
